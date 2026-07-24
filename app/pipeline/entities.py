@@ -24,7 +24,9 @@ class EntityExtractionService:
         prompt_template_path: Path | None = None,
     ) -> None:
         self.llm_client = llm_client
-        self.prompt_template_path = prompt_template_path or Path("prompts/entity_extraction_prompt.txt")
+        self.prompt_template_path = (
+            prompt_template_path or Path("prompts/entity_extraction_prompt.txt")
+        )
 
     def extract_candidates(
         self,
@@ -38,7 +40,10 @@ class EntityExtractionService:
         for lemmatized_file in lemmatized_files:
             prompt = prompt_template.format(
                 lemma_text=lemmatized_file.lemma_text,
-                source_text=source_text_lookup.get(lemmatized_file.filename, lemmatized_file.lemma_text),
+                source_text=source_text_lookup.get(
+                    lemmatized_file.filename,
+                    lemmatized_file.lemma_text,
+                ),
             )
             try:
                 response = self.llm_client.prompt(prompt)
@@ -49,7 +54,11 @@ class EntityExtractionService:
 
         return candidates
 
-    def _parse_response(self, lemmatized_file: LemmatizedFile, response_text: str) -> list[CandidateEntity]:
+    def _parse_response(
+        self,
+        lemmatized_file: LemmatizedFile,
+        response_text: str,
+    ) -> list[CandidateEntity]:
         parsed: list[CandidateEntity] = []
 
         for line in response_text.splitlines():

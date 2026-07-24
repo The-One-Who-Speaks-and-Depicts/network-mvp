@@ -69,7 +69,12 @@ class GraphExporter:
             html_path.write_text(self._fallback_html(graph), encoding="utf-8")
             return
 
-        network = PYVIS_NETWORK(height="750px", width="100%", bgcolor="#ffffff", font_color="#000000")
+        network = PYVIS_NETWORK(
+            height="750px",
+            width="100%",
+            bgcolor="#ffffff",
+            font_color="#000000",
+        )
         for node_name, attributes in self._iter_nodes(graph):
             centrality = attributes.get("centrality_eigenvector", 0.0)
             source_files = tuple(attributes.get("source_files", ()))
@@ -84,7 +89,11 @@ class GraphExporter:
                 node_name,
                 label=node_name,
                 title=title,
-                color="#f472b6" if attributes.get("gender_inference") == "female" else "#93c5fd",
+                color=(
+                    "#f472b6"
+                    if attributes.get("gender_inference") == "female"
+                    else "#93c5fd"
+                ),
                 value=max(float(centrality), 0.1) * 100,
             )
 
@@ -96,8 +105,15 @@ class GraphExporter:
             if attributes.get("semantic_relation"):
                 title_parts.append(f"semantic relation: {attributes.get('semantic_relation')}")
             if attributes.get("semantic_confidence") is not None:
-                title_parts.append(f"semantic confidence: {attributes.get('semantic_confidence')}")
-            network.add_edge(source, target, value=attributes.get("weight", 1), title="<br>".join(title_parts))
+                title_parts.append(
+                    f"semantic confidence: {attributes.get('semantic_confidence')}"
+                )
+            network.add_edge(
+                source,
+                target,
+                value=attributes.get("weight", 1),
+                title="<br>".join(title_parts),
+            )
 
         network.write_html(str(html_path), notebook=False)
 
@@ -116,7 +132,10 @@ class GraphExporter:
   <h1>Network Graph</h1>
   <pre id=\"graph-data\"></pre>
   <script>
-    const graphData = """ + json.dumps(json.dumps(payload, ensure_ascii=False, indent=2), ensure_ascii=False) + """;
+    const graphData = """ + json.dumps(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            ensure_ascii=False,
+        ) + """;
     document.getElementById('graph-data').textContent = graphData;
   </script>
 </body>
@@ -131,4 +150,7 @@ class GraphExporter:
     def _iter_edges(self, graph: Any):
         if hasattr(graph, "edges") and callable(getattr(graph.edges, "data", None)):
             return graph.edges(data=True)
-        return [(source, target, attributes) for (source, target), attributes in graph.edges._data.items()]
+        return [
+            (source, target, attributes)
+            for (source, target), attributes in graph.edges.items()
+        ]

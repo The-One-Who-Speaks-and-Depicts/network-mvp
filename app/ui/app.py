@@ -2,9 +2,20 @@
 
 from __future__ import annotations
 
+from importlib import import_module
+from pathlib import Path
+import sys
+
 import streamlit as st
 
-from app.ui.shell import default_form_values, handle_run_request
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    shell_module = import_module("app.ui.shell")
+else:
+    shell_module = import_module(f"{__package__}.shell")
+
+default_form_values = shell_module.default_form_values
+handle_run_request = shell_module.handle_run_request
 
 
 def main() -> None:
@@ -42,10 +53,15 @@ def main() -> None:
 
         if response.progress_state:
             st.write(f"Current stage: `{response.progress_state.current_stage}`")
-            if response.progress_state.completed_files is not None and response.progress_state.total_files is not None:
+            if (
+                response.progress_state.completed_files is not None
+                and response.progress_state.total_files is not None
+            ):
+                processed_count = response.progress_state.completed_files
+                total_count = response.progress_state.total_files
                 st.write(
                     "Files processed: "
-                    f"{response.progress_state.completed_files}/{response.progress_state.total_files}"
+                    f"{processed_count}/{total_count}"
                 )
             st.write(f"Run state: `{response.progress_state.status}`")
             if response.progress_state.message:
@@ -57,7 +73,9 @@ def main() -> None:
             if response.result.stderr.strip():
                 st.code(response.result.stderr.strip(), language="text")
     else:
-        st.info("Ready. Enter run inputs, then click Start run.")
+        st.info(
+            "Ready. Enter run inputs, then click Start run."
+        )
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+"""Check pull requests for required project governance updates."""
+
 from __future__ import annotations
 
 import os

@@ -22,6 +22,9 @@ class SimpleEdgeView:
     def add(self, source: str, target: str, attributes: dict[str, object]) -> None:
         self._data[(source, target)] = attributes
 
+    def items(self):
+        return self._data.items()
+
     def __iter__(self):
         return iter(self._data)
 
@@ -130,7 +133,7 @@ class GraphBuilder:
 
         for _ in range(100):
             next_values = [0.0 for _ in nodes]
-            for (source, target), attributes in graph.edges._data.items():
+            for (source, target), attributes in graph.edges.items():
                 weight = float(cast(float | int | str, attributes.get("weight", 1.0)))
                 source_index = index[source]
                 target_index = index[target]
@@ -142,7 +145,10 @@ class GraphBuilder:
                 return {node: 0.0 for node in nodes}
 
             next_values = [value / norm for value in next_values]
-            max_delta = max(abs(current - next_value) for current, next_value in zip(values, next_values))
+            max_delta = max(
+                abs(current - next_value)
+                for current, next_value in zip(values, next_values)
+            )
             values = next_values
             if max_delta < 1e-9:
                 break

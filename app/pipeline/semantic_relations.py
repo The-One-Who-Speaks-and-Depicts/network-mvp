@@ -49,7 +49,9 @@ class SemanticRelationService:
         prompt_template_path: Path | None = None,
     ) -> None:
         self.llm_client = llm_client
-        self.prompt_template_path = prompt_template_path or Path("prompts/semantic_relation_prompt.txt")
+        self.prompt_template_path = (
+            prompt_template_path or Path("prompts/semantic_relation_prompt.txt")
+        )
 
     def annotate_edges(
         self,
@@ -62,44 +64,67 @@ class SemanticRelationService:
             return [self._to_semantic_edge(edge) for edge in edges]
 
         prompt_template = self.prompt_template_path.read_text(encoding="utf-8")
-        annotated: list[SemanticEdge] = []
         source_context_lookup = source_context_by_file or {}
-
-        for edge in edges:
-            lemmatized_context = "\n".join(
-                lemmatized_context_by_file[source_file]
-                for source_file in edge.source_files
-                if source_file in lemmatized_context_by_file
+        return [
+            self._annotate_edge(
+                edge,
+                prompt_template,
+                lemmatized_context_by_file,
+                source_context_lookup,
             )
-            source_context = "\n".join(
-                source_context_lookup[source_file]
-                for source_file in edge.source_files
-                if source_file in source_context_lookup
-            )
-            prompt = prompt_template.format(
-                lemma_context=lemmatized_context,
-                source_context=source_context or lemmatized_context,
-                source=edge.source,
-                target=edge.target,
+            for edge in edges
+        ]
+
+    def _annotate_edge(
+        self,
+        edge: CooccurrenceEdge,
+        prompt_template: str,
+        lemmatized_context_by_file: dict[str, str],
+        source_context_by_file: dict[str, str],
+    ) -> SemanticEdge:
+        lemmatized_context = self._join_context(
+            edge.source_files,
+            lemmatized_context_by_file,
+        )
+        source_context = self._join_context(
+            edge.source_files,
+            source_context_by_file,
+        )
+        prompt = prompt_template.format(
+            lemma_context=lemmatized_context,
+            source_context=source_context or lemmatized_context,
+            source=edge.source,
+            target=edge.target,
+        )
+
+        try:
+            response = self.llm_client.prompt(prompt)
+            relation, direction, confidence = self._parse_response(response.text)
+        except (LlmClientError, ValueError):
+            return self._to_semantic_edge(
+                edge,
+                relation="not stated",
+                direction=None,
+                confidence=0.0,
             )
 
-            try:
-                response = self.llm_client.prompt(prompt)
-                relation, direction, confidence = self._parse_response(response.text)
-            except (LlmClientError, ValueError):
-                annotated.append(self._to_semantic_edge(edge, relation="not stated", direction=None, confidence=0.0))
-                continue
+        return self._to_semantic_edge(
+            edge,
+            relation=relation,
+            direction=direction,
+            confidence=confidence,
+        )
 
-            annotated.append(
-                self._to_semantic_edge(
-                    edge,
-                    relation=relation,
-                    direction=direction,
-                    confidence=confidence,
-                )
-            )
-
-        return annotated
+    def _join_context(
+        self,
+        source_files: tuple[str, ...],
+        context_by_file: dict[str, str],
+    ) -> str:
+        return "\n".join(
+            context_by_file[source_file]
+            for source_file in source_files
+            if source_file in context_by_file
+        )
 
     def _parse_response(self, response_text: str) -> tuple[str, str | None, float]:
         first_line = next((line.strip() for line in response_text.splitlines() if line.strip()), "")

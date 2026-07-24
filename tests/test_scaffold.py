@@ -1,3 +1,5 @@
+"""Scaffold and regression tests for application modules."""
+
 import json
 from pathlib import Path
 import subprocess
@@ -71,7 +73,7 @@ class FakeLlmClient:
         self.error = error
         self.prompts: list[str] = []
 
-    def prompt(self, prompt_text: str, system_prompt: str | None = None) -> LlmResponse:
+    def prompt(self, prompt_text: str, _system_prompt: str | None = None) -> LlmResponse:
         self.prompts.append(prompt_text)
         if self.error is not None:
             raise self.error
@@ -81,6 +83,109 @@ class FakeLlmClient:
 
 
 class ScaffoldTests(unittest.TestCase):
+    def _tiny_corpus_clients(self) -> dict[str, FakeLlmClient]:
+        return {
+            "normalization": FakeLlmClient(
+                responses=[
+                    "княгиня грикша пишет к ѥсифу",
+                    "княгиня грикша вспоминает федосьꙗ",
+                ]
+            ),
+            "lemmatization": FakeLlmClient(
+                responses=[
+                    "княгиня грикша писать к ѥсифъ",
+                    "княгиня грикша вспоминать федосьꙗ",
+                ]
+            ),
+            "entity": FakeLlmClient(
+                responses=[
+                    "Княгиня Грикша\tкнягиня грикша\nѤсифъ\tѥсифу",
+                    "Княгиня Грикша\tкнягиня грикша\nФедосьꙗ\tфедосьꙗ",
+                ]
+            ),
+            "semantic": FakeLlmClient(
+                responses=[
+                    "not stated\t\t0.2",
+                    "daughter of\ttarget_to_source\t0.7",
+                ]
+            ),
+        }
+
+    def _run_tiny_corpus_pipeline(self) -> dict[str, object]:
+        clients = self._tiny_corpus_clients()
+        result: dict[str, object] = {}
+
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            input_dir = Path(input_temp_dir)
+            output_dir = Path(output_temp_dir)
+            (input_dir / "003.003.txt").write_text(
+                "Княгиня Грикша пишет к ѥсифу.",
+                encoding="utf-8",
+            )
+            (input_dir / "004.004.txt").write_text(
+                "Княгиня Грикша вспоминает Федосьꙗ.",
+                encoding="utf-8",
+            )
+
+            config = AppConfig.from_mapping(
+                {
+                    "input_dir": input_dir,
+                    "output_dir": output_dir,
+                    "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                    "model_name": "local-model",
+                    "enable_semantic_annotation": True,
+                }
+            )
+
+            result["source_files"] = FileIngestionService().ingest(config)
+            source_text_by_file = {
+                source_file.filename: source_file.text
+                for source_file in result["source_files"]
+            }
+            result["normalized_files"] = NormalizationService(
+                clients["normalization"]
+            ).normalize_files(result["source_files"], output_dir)
+            result["lemmatized_files"] = LemmatizationService(
+                clients["lemmatization"]
+            ).lemmatize_files(result["normalized_files"], output_dir)
+            result["candidates"] = EntityExtractionService(
+                clients["entity"]
+            ).extract_candidates(
+                result["lemmatized_files"],
+                source_text_by_file=source_text_by_file,
+            )
+            result["entities"] = EntityMergeService().merge_candidates(result["candidates"])
+            result["edges"] = CooccurrenceService().build_edges(result["entities"])
+            lemmatized_context_by_file = {
+                lemmatized_file.filename: lemmatized_file.lemma_text
+                for lemmatized_file in result["lemmatized_files"]
+            }
+            result["semantic_edges"] = SemanticRelationService(
+                clients["semantic"]
+            ).annotate_edges(
+                result["edges"],
+                lemmatized_context_by_file=lemmatized_context_by_file,
+                enabled=config.enable_semantic_annotation,
+                source_context_by_file=source_text_by_file,
+            )
+            export_result = GraphExporter().export(
+                GraphBuilder().build(
+                    result["entities"],
+                    result["semantic_edges"],
+                ).graph,
+                output_dir,
+            )
+            result["payload"] = json.loads(
+                export_result.json_path.read_text(encoding="utf-8")
+            )
+            result["html"] = export_result.html_path.read_text(encoding="utf-8")
+            result["html_path"] = export_result.html_path
+
+        return result
+
     def test_required_directories_exist(self) -> None:
         for path in [
             Path("app"),
@@ -261,7 +366,10 @@ class ScaffoldTests(unittest.TestCase):
 
     def test_file_ingestion_ingest_writes_logs_outside_container_mount(self) -> None:
         service = FileIngestionService()
-        with tempfile.TemporaryDirectory() as input_temp_dir, tempfile.TemporaryDirectory() as output_temp_dir:
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
             input_dir = Path(input_temp_dir)
             output_dir = Path(output_temp_dir)
             (input_dir / "letter.txt").write_text("Text body", encoding="utf-8")
@@ -277,7 +385,9 @@ class ScaffoldTests(unittest.TestCase):
             source_files = service.ingest(config)
 
             self.assertEqual(len(source_files), 1)
-            self.assertTrue((output_dir / "logs" / "original" / "text_0001_letter.txt").is_file())
+            self.assertTrue(
+                (output_dir / "logs" / "original" / "text_0001_letter.txt").is_file()
+            )
 
     def test_normalization_removes_line_breaks_and_writes_output(self) -> None:
         client = FakeLlmClient(responses=["first line\nsecond line"])
@@ -360,8 +470,14 @@ class ScaffoldTests(unittest.TestCase):
             output_dir = Path(temp_dir)
             normalized_files = service.normalize_files(source_files, output_dir)
 
-            self.assertEqual([file.file_id for file in normalized_files], ["text_0001", "text_0002", "text_0003"])
-            self.assertEqual([file.filename for file in normalized_files], ["003.003.txt", "004.004.txt", "005.005.txt"])
+            self.assertEqual(
+                [file.file_id for file in normalized_files],
+                ["text_0001", "text_0002", "text_0003"],
+            )
+            self.assertEqual(
+                [file.filename for file in normalized_files],
+                ["003.003.txt", "004.004.txt", "005.005.txt"],
+            )
             self.assertEqual(
                 [file.normalized_text for file in normalized_files],
                 [
@@ -370,9 +486,15 @@ class ScaffoldTests(unittest.TestCase):
                     "♮но ѿ давꙑ♮ ♮есиѳа · къ матѳѣю · постои · за нашего сироту ·",
                 ],
             )
-            self.assertTrue((output_dir / "normalized" / "text_0001_003.003.txt").is_file())
-            self.assertTrue((output_dir / "normalized" / "text_0002_004.004.txt").is_file())
-            self.assertTrue((output_dir / "normalized" / "text_0003_005.005.txt").is_file())
+            self.assertTrue(
+                (output_dir / "normalized" / "text_0001_003.003.txt").is_file()
+            )
+            self.assertTrue(
+                (output_dir / "normalized" / "text_0002_004.004.txt").is_file()
+            )
+            self.assertTrue(
+                (output_dir / "normalized" / "text_0003_005.005.txt").is_file()
+            )
             self.assertIn("поклонъ ѿ грикши", client.prompts[0])
 
     def test_lemmatization_writes_output(self) -> None:
@@ -474,8 +596,14 @@ class ScaffoldTests(unittest.TestCase):
             output_dir = Path(temp_dir)
             lemmatized_files = service.lemmatize_files(normalized_files, output_dir)
 
-            self.assertEqual([file.file_id for file in lemmatized_files], ["text_0001", "text_0002", "text_0003"])
-            self.assertEqual([file.filename for file in lemmatized_files], ["003.003.txt", "004.004.txt", "005.005.txt"])
+            self.assertEqual(
+                [file.file_id for file in lemmatized_files],
+                ["text_0001", "text_0002", "text_0003"],
+            )
+            self.assertEqual(
+                [file.filename for file in lemmatized_files],
+                ["003.003.txt", "004.004.txt", "005.005.txt"],
+            )
             self.assertEqual(
                 [file.lemma_text for file in lemmatized_files],
                 [
@@ -484,9 +612,15 @@ class ScaffoldTests(unittest.TestCase):
                     "но ѿ давы ♮есиѳа · къ матѳѣи · постоѧти · за нашь сирота ·",
                 ],
             )
-            self.assertTrue((output_dir / "lemmas" / "text_0001_003.003.txt").is_file())
-            self.assertTrue((output_dir / "lemmas" / "text_0002_004.004.txt").is_file())
-            self.assertTrue((output_dir / "lemmas" / "text_0003_005.005.txt").is_file())
+            self.assertTrue(
+                (output_dir / "lemmas" / "text_0001_003.003.txt").is_file()
+            )
+            self.assertTrue(
+                (output_dir / "lemmas" / "text_0002_004.004.txt").is_file()
+            )
+            self.assertTrue(
+                (output_dir / "lemmas" / "text_0003_005.005.txt").is_file()
+            )
             self.assertIn("поклонъ ѿ грикши", client.prompts[0])
 
     def test_entity_extraction_parses_candidates_per_file(self) -> None:
@@ -507,9 +641,17 @@ class ScaffoldTests(unittest.TestCase):
         )
 
         self.assertEqual(len(candidates), 2)
-        self.assertTrue(all(isinstance(candidate, CandidateEntity) for candidate in candidates))
-        self.assertEqual([candidate.file_id for candidate in candidates], ["text_0001", "text_0001"])
-        self.assertEqual([candidate.filename for candidate in candidates], ["003.003.txt", "003.003.txt"])
+        self.assertTrue(
+            all(isinstance(candidate, CandidateEntity) for candidate in candidates)
+        )
+        self.assertEqual(
+            [candidate.file_id for candidate in candidates],
+            ["text_0001", "text_0001"],
+        )
+        self.assertEqual(
+            [candidate.filename for candidate in candidates],
+            ["003.003.txt", "003.003.txt"],
+        )
         self.assertEqual([candidate.name for candidate in candidates], ["грикша", "ѥсифъ"])
         self.assertEqual([candidate.evidence for candidate in candidates], ["грикши", "ѥсифу"])
         self.assertIn("поклонъ ѿ грикша", client.prompts[0])
@@ -563,9 +705,18 @@ class ScaffoldTests(unittest.TestCase):
 
         candidates = service.extract_candidates(lemmatized_files)
 
-        self.assertEqual([candidate.name for candidate in candidates], ["грикша", "ѥсифъ", "федосьꙗ"])
-        self.assertEqual([candidate.evidence for candidate in candidates], ["грикши", "ѥсифу", "федосьӏ"])
-        self.assertEqual([candidate.filename for candidate in candidates], ["003.003.txt", "003.003.txt", "003.003.txt"])
+        self.assertEqual(
+            [candidate.name for candidate in candidates],
+            ["грикша", "ѥсифъ", "федосьꙗ"],
+        )
+        self.assertEqual(
+            [candidate.evidence for candidate in candidates],
+            ["грикши", "ѥсифу", "федосьӏ"],
+        )
+        self.assertEqual(
+            [candidate.filename for candidate in candidates],
+            ["003.003.txt", "003.003.txt", "003.003.txt"],
+        )
 
     def test_entity_merge_groups_aliases_and_source_files(self) -> None:
         candidates = [
@@ -646,9 +797,24 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(merged[2].gender_inference, "not-inferred")
 
     def test_entity_merge_marks_ambiguous_gender_on_conflicting_signals(self) -> None:
-        service = EntityMergeService()
+        merged = EntityMergeService().merge_candidates(
+            [
+                CandidateEntity(
+                    file_id="text_0001",
+                    filename="001.txt",
+                    name="N",
+                    evidence="n",
+                ),
+                CandidateEntity(
+                    file_id="text_0002",
+                    filename="002.txt",
+                    name="Княгиня N",
+                    evidence="княгиня n",
+                ),
+            ]
+        )
 
-        self.assertEqual(service._merge_gender("female", "not-inferred"), "ambiguous")
+        self.assertEqual(merged[0].gender_inference, "ambiguous")
 
     def test_entity_merge_with_birchbark_style_candidates(self) -> None:
         candidates = [
@@ -989,7 +1155,10 @@ class ScaffoldTests(unittest.TestCase):
         )
         self.assertEqual(result.graph.nodes["федосьꙗ"]["gender_inference"], "female")
         self.assertIn("centrality_eigenvector", result.graph.nodes["грикша"])
-        self.assertEqual(result.graph.edges[("ѥсифъ", "федосьꙗ")]["semantic_relation"], "daughter of")
+        self.assertEqual(
+            result.graph.edges[("ѥсифъ", "федосьꙗ")]["semantic_relation"],
+            "daughter of",
+        )
         self.assertIn(
             result.warnings,
             ((), ("networkx not available; using fallback eigenvector centrality.",)),
@@ -1075,7 +1244,9 @@ class ScaffoldTests(unittest.TestCase):
 
         self.assertEqual(result.graph.number_of_nodes(), 4)
         self.assertEqual(result.graph.number_of_edges(), 3)
-        self.assertTrue(all(node in result.centrality for node in ["грикша", "ѥсифъ", "федосьꙗ", "петръ"]))
+        self.assertTrue(
+            all(node in result.centrality for node in ["грикша", "ѥсифъ", "федосьꙗ", "петръ"])
+        )
         self.assertEqual(result.graph.edges[("грикша", "петръ")]["source_files"], ("004.004.txt",))
         self.assertEqual(result.graph.nodes["федосьꙗ"]["aliases"], ("Федосьꙗ",))
 
@@ -1202,7 +1373,10 @@ class ScaffoldTests(unittest.TestCase):
 
     def test_progress_reporter_marks_failed_run(self) -> None:
         state = ProgressReporter().from_result(
-            stdout="PROGRESS\tstage=entity_extraction\tcompleted=3\ttotal=5\tstatus=running\tmessage=Extracting\n",
+            stdout=(
+                "PROGRESS\tstage=entity_extraction\tcompleted=3\ttotal=5\t"
+                "status=running\tmessage=Extracting\n"
+            ),
             stderr="container boom",
             succeeded=False,
         )
@@ -1313,92 +1487,35 @@ class ScaffoldTests(unittest.TestCase):
         )
 
     def test_smoke_tiny_corpus_happy_path(self) -> None:
-        normalization_client = FakeLlmClient(
-            responses=[
-                "княгиня грикша пишет к ѥсифу",
-                "княгиня грикша вспоминает федосьꙗ",
-            ]
-        )
-        lemmatization_client = FakeLlmClient(
-            responses=[
-                "княгиня грикша писать к ѥсифъ",
-                "княгиня грикша вспоминать федосьꙗ",
-            ]
-        )
-        entity_client = FakeLlmClient(
-            responses=[
-                "Княгиня Грикша\tкнягиня грикша\nѤсифъ\tѥсифу",
-                "Княгиня Грикша\tкнягиня грикша\nФедосьꙗ\tфедосьꙗ",
-            ]
-        )
-        semantic_client = FakeLlmClient(
-            responses=[
-                "not stated\t\t0.2",
-                "daughter of\ttarget_to_source\t0.7",
-            ]
-        )
+        result = self._run_tiny_corpus_pipeline()
 
-        with tempfile.TemporaryDirectory() as input_temp_dir, tempfile.TemporaryDirectory() as output_temp_dir:
-            input_dir = Path(input_temp_dir)
-            output_dir = Path(output_temp_dir)
-            (input_dir / "003.003.txt").write_text("Княгиня Грикша пишет к ѥсифу.", encoding="utf-8")
-            (input_dir / "004.004.txt").write_text("Княгиня Грикша вспоминает Федосьꙗ.", encoding="utf-8")
-
-            config = AppConfig.from_mapping(
-                {
-                    "input_dir": input_dir,
-                    "output_dir": output_dir,
-                    "lmstudio_base_url": "http://127.0.0.1:1234/v1",
-                    "model_name": "local-model",
-                    "enable_semantic_annotation": True,
-                }
+        self.assertTrue(result["html_path"].is_file())
+        self.assertEqual(len(result["source_files"]), 2)
+        self.assertEqual(len(result["normalized_files"]), 2)
+        self.assertEqual(len(result["lemmatized_files"]), 2)
+        self.assertEqual(len(result["candidates"]), 4)
+        self.assertEqual(len(result["entities"]), 3)
+        self.assertEqual(len(result["edges"]), 2)
+        self.assertEqual(len(result["semantic_edges"]), 2)
+        self.assertEqual(len(result["payload"]["nodes"]), 3)
+        self.assertEqual(len(result["payload"]["edges"]), 2)
+        self.assertEqual(
+            {node["id"] for node in result["payload"]["nodes"]},
+            {"грикша", "ѥсифъ", "федосьꙗ"},
+        )
+        self.assertTrue(
+            all(
+                "centrality_eigenvector" in node
+                for node in result["payload"]["nodes"]
             )
-
-            source_files = FileIngestionService().ingest(config)
-            normalized_files = NormalizationService(normalization_client).normalize_files(source_files, output_dir)
-            lemmatized_files = LemmatizationService(lemmatization_client).lemmatize_files(normalized_files, output_dir)
-            candidates = EntityExtractionService(entity_client).extract_candidates(
-                lemmatized_files,
-                source_text_by_file={
-                    source_file.filename: source_file.text
-                    for source_file in source_files
-                },
-            )
-            entities = EntityMergeService().merge_candidates(candidates)
-            edges = CooccurrenceService().build_edges(entities)
-            semantic_edges = SemanticRelationService(semantic_client).annotate_edges(
-                edges,
-                lemmatized_context_by_file={
-                    lemmatized_file.filename: lemmatized_file.lemma_text
-                    for lemmatized_file in lemmatized_files
-                },
-                enabled=config.enable_semantic_annotation,
-                source_context_by_file={
-                    source_file.filename: source_file.text
-                    for source_file in source_files
-                },
-            )
-            graph_result = GraphBuilder().build(entities, semantic_edges)
-            export_result = GraphExporter().export(graph_result.graph, output_dir)
-            payload = json.loads(export_result.json_path.read_text(encoding="utf-8"))
-            html = export_result.html_path.read_text(encoding="utf-8")
-
-            self.assertTrue(export_result.html_path.is_file())
-
-        self.assertEqual(len(source_files), 2)
-        self.assertEqual(len(normalized_files), 2)
-        self.assertEqual(len(lemmatized_files), 2)
-        self.assertEqual(len(candidates), 4)
-        self.assertEqual(len(entities), 3)
-        self.assertEqual(len(edges), 2)
-        self.assertEqual(len(semantic_edges), 2)
-        self.assertEqual(len(payload["nodes"]), 3)
-        self.assertEqual(len(payload["edges"]), 2)
-        self.assertEqual({node["id"] for node in payload["nodes"]}, {"грикша", "ѥсифъ", "федосьꙗ"})
-        self.assertTrue(all("centrality_eigenvector" in node for node in payload["nodes"]))
-        self.assertTrue(all("source_files" in node for node in payload["nodes"]))
-        self.assertTrue(all("source_files" in edge for edge in payload["edges"]))
-        self.assertIn("<html", html.lower())
+        )
+        self.assertTrue(
+            all("source_files" in node for node in result["payload"]["nodes"])
+        )
+        self.assertTrue(
+            all("source_files" in edge for edge in result["payload"]["edges"])
+        )
+        self.assertIn("<html", result["html"].lower())
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
@@ -1480,7 +1597,9 @@ class ScaffoldTests(unittest.TestCase):
         client = LlmClient(
             base_url="http://127.0.0.1:1234/v1",
             model_name="local-model",
-            client_factory=lambda **_: FakeClient(FakeCompletions(error=RuntimeError("connection refused"))),
+            client_factory=lambda **_: FakeClient(
+                FakeCompletions(error=RuntimeError("connection refused"))
+            ),
         )
 
         with self.assertRaisesRegex(LlmClientError, "LLM request failed: connection refused"):

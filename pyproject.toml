@@ -11,18 +11,9 @@ py-version = "3.12"
 
 [tool.pylint.messages_control]
 disable = [
-  "missing-module-docstring",
   "missing-class-docstring",
   "missing-function-docstring",
   "too-few-public-methods",
   "too-many-public-methods",
-  "too-many-locals",
-  "too-many-statements",
-  "too-many-branches",
-  "too-many-lines",
-  "duplicate-code",
-  "line-too-long",
-  "broad-exception-caught",
-  "unused-argument",
-  "protected-access"
+  "too-many-lines"
 ]
