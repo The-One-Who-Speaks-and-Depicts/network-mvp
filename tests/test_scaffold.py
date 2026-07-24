@@ -3,7 +3,7 @@ import subprocess
 import sys
 import unittest
 
-from app.config import AppConfig
+from app.config import AppConfig, ConfigError
 
 
 class ScaffoldTests(unittest.TestCase):
@@ -37,12 +37,71 @@ class ScaffoldTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertTrue(path.is_file())
 
-    def test_config_defaults_are_constructible(self) -> None:
-        config = AppConfig()
-        self.assertEqual(config.lmstudio_base_url, "")
-        self.assertEqual(config.model_name, "")
-        self.assertIsNone(config.input_dir)
-        self.assertIsNone(config.output_dir)
+    def test_config_from_mapping_returns_valid_config(self) -> None:
+        config = AppConfig.from_mapping(
+            {
+                "input_dir": "input-data",
+                "output_dir": Path("output-data"),
+                "lmstudio_base_url": "http://localhost:1234/v1",
+                "model_name": "local-model",
+                "enable_semantic_annotation": "false",
+                "enable_debug_logging": True,
+            }
+        )
+
+        self.assertEqual(config.input_dir, Path("input-data"))
+        self.assertEqual(config.output_dir, Path("output-data"))
+        self.assertEqual(config.lmstudio_base_url, "http://localhost:1234/v1")
+        self.assertEqual(config.model_name, "local-model")
+        self.assertFalse(config.enable_semantic_annotation)
+        self.assertTrue(config.enable_debug_logging)
+
+    def test_config_from_env_uses_expected_variable_names(self) -> None:
+        config = AppConfig.from_env(
+            {
+                "NETWORK_MVP_INPUT_DIR": "corpus",
+                "NETWORK_MVP_OUTPUT_DIR": "artifacts",
+                "NETWORK_MVP_LMSTUDIO_BASE_URL": "http://127.0.0.1:1234/v1",
+                "NETWORK_MVP_MODEL_NAME": "lmstudio-model",
+                "NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION": "yes",
+                "NETWORK_MVP_ENABLE_DEBUG_LOGGING": "on",
+            }
+        )
+
+        self.assertEqual(config.input_dir, Path("corpus"))
+        self.assertEqual(config.output_dir, Path("artifacts"))
+        self.assertEqual(config.lmstudio_base_url, "http://127.0.0.1:1234/v1")
+        self.assertEqual(config.model_name, "lmstudio-model")
+        self.assertTrue(config.enable_semantic_annotation)
+        self.assertTrue(config.enable_debug_logging)
+
+    def test_config_missing_required_values_raise_clear_error(self) -> None:
+        with self.assertRaisesRegex(
+            ConfigError,
+            "Missing required configuration value: input_dir",
+        ):
+            AppConfig.from_mapping(
+                {
+                    "output_dir": "output",
+                    "lmstudio_base_url": "http://localhost:1234/v1",
+                    "model_name": "local-model",
+                }
+            )
+
+    def test_config_invalid_boolean_raises_clear_error(self) -> None:
+        with self.assertRaisesRegex(
+            ConfigError,
+            "Invalid boolean configuration value for enable_debug_logging",
+        ):
+            AppConfig.from_mapping(
+                {
+                    "input_dir": "input",
+                    "output_dir": "output",
+                    "lmstudio_base_url": "http://localhost:1234/v1",
+                    "model_name": "local-model",
+                    "enable_debug_logging": "maybe",
+                }
+            )
 
     def test_main_entrypoint_runs(self) -> None:
         result = subprocess.run(
@@ -52,7 +111,6 @@ class ScaffoldTests(unittest.TestCase):
             check=True,
         )
         self.assertIn("Female Character Network Visualizer scaffold", result.stdout)
-
 
     def test_requirements_include_core_dependencies(self) -> None:
         requirements = Path("requirements.txt").read_text(encoding="utf-8")

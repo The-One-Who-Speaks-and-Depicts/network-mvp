@@ -15,7 +15,7 @@ It does **not yet** contain the actual text-processing pipeline or web UI. The c
 
 ## Version
 
-Current development version: `0.2.0-dev`
+Current development version: `0.3.0-dev`
 
 ## Requirements
 
@@ -39,6 +39,32 @@ prompts/     prompt templates
 scripts/     helper scripts
 tests/       test suite
 ```
+
+## Configuration
+
+Current code includes runtime configuration model in `app/config.py`.
+
+Supported environment variables:
+
+- `NETWORK_MVP_INPUT_DIR`
+- `NETWORK_MVP_OUTPUT_DIR`
+- `NETWORK_MVP_LMSTUDIO_BASE_URL`
+- `NETWORK_MVP_MODEL_NAME`
+- `NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION`
+- `NETWORK_MVP_ENABLE_DEBUG_LOGGING`
+
+Example:
+
+```bash
+export NETWORK_MVP_INPUT_DIR=./data
+export NETWORK_MVP_OUTPUT_DIR=./output
+export NETWORK_MVP_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1
+export NETWORK_MVP_MODEL_NAME=local-model
+export NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION=true
+export NETWORK_MVP_ENABLE_DEBUG_LOGGING=false
+```
+
+Note: current scaffold entrypoint does not consume these values yet. Config model and loaders are ready for next integration steps.
 
 ## Local Python run
 
@@ -121,7 +147,6 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- config model
 - local web UI
 - Docker runner integration
 - LM Studio client
