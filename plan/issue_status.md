@@ -21,7 +21,7 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 11 Entity merge logic
 - [x] 12 Co-occurrence edge generation
 - [x] 13 Semantic relation annotation
-- [ ] 14 Graph builder and centrality
+- [x] 14 Graph builder and centrality
 - [ ] 15 JSON and HTML export
 - [ ] 16 Progress reporting
 - [ ] 17 Smoke tests and schema tests

@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 from app.config import AppConfig, ConfigError
+from app.graph.build import GraphBuildResult, GraphBuilder
 from app.pipeline.cooccurrence import CooccurrenceEdge, CooccurrenceService
 from app.pipeline.entities import CandidateEntity, EntityExtractionService
 from app.pipeline.semantic_relations import SemanticEdge, SemanticRelationService
@@ -99,6 +100,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/config.py"),
             Path("app/ui/app.py"),
             Path("app/ui/shell.py"),
+            Path("app/graph/build.py"),
             Path("app/pipeline/file_ingestion.py"),
             Path("app/pipeline/normalization.py"),
             Path("app/pipeline/lemmatization.py"),
@@ -888,6 +890,150 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(annotated[1].semantic_confidence, 0.6)
         self.assertIn("Entity A: грикша", client.prompts[0])
         self.assertIn("Entity B: ѥсифъ", client.prompts[0])
+
+    def test_graph_builder_constructs_graph_and_centrality(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="грикша",
+                aliases=("Грикша",),
+                source_files=("003.003.txt", "004.004.txt"),
+                evidence=("грикши",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="ѥсифъ",
+                aliases=("Ѥсифъ",),
+                source_files=("003.003.txt",),
+                evidence=("ѥсифу",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="федосьꙗ",
+                aliases=("Федосьꙗ",),
+                source_files=("003.003.txt",),
+                evidence=("федосьӏ",),
+                gender_inference="female",
+            ),
+        ]
+        edges = [
+            SemanticEdge(
+                source="грикша",
+                target="ѥсифъ",
+                weight=1,
+                source_files=("003.003.txt",),
+                semantic_relation="not stated",
+                semantic_direction=None,
+                semantic_confidence=0.3,
+            ),
+            SemanticEdge(
+                source="ѥсифъ",
+                target="федосьꙗ",
+                weight=1,
+                source_files=("003.003.txt",),
+                semantic_relation="daughter of",
+                semantic_direction="target_to_source",
+                semantic_confidence=0.6,
+            ),
+        ]
+        result = GraphBuilder().build(entities, edges)
+
+        self.assertIsInstance(result, GraphBuildResult)
+        self.assertEqual(set(result.graph.nodes), {"грикша", "ѥсифъ", "федосьꙗ"})
+        self.assertEqual(
+            {frozenset(edge) for edge in result.graph.edges},
+            {frozenset(("грикша", "ѥсифъ")), frozenset(("ѥсифъ", "федосьꙗ"))},
+        )
+        self.assertEqual(result.graph.nodes["федосьꙗ"]["gender_inference"], "female")
+        self.assertIn("centrality_eigenvector", result.graph.nodes["грикша"])
+        self.assertEqual(result.graph.edges[("ѥсифъ", "федосьꙗ")]["semantic_relation"], "daughter of")
+        self.assertTrue(
+            result.warnings == ()
+            or result.warnings == ("networkx not available; using fallback eigenvector centrality.",)
+        )
+
+    def test_graph_builder_handles_edgeless_graph(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="грикша",
+                aliases=("Грикша",),
+                source_files=("003.003.txt",),
+                evidence=("грикши",),
+                gender_inference="not-inferred",
+            )
+        ]
+        result = GraphBuilder().build(entities, [])
+
+        self.assertEqual(result.centrality, {"грикша": 0.0})
+        self.assertIn("Graph has no edges", result.warnings[0])
+        self.assertEqual(result.graph.nodes["грикша"]["centrality_eigenvector"], 0.0)
+
+    def test_graph_builder_with_realistic_semantic_edges(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="грикша",
+                aliases=("Грикша",),
+                source_files=("003.003.txt", "004.004.txt"),
+                evidence=("грикши",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="ѥсифъ",
+                aliases=("Ѥсифъ",),
+                source_files=("003.003.txt",),
+                evidence=("ѥсифу",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="федосьꙗ",
+                aliases=("Федосьꙗ",),
+                source_files=("003.003.txt",),
+                evidence=("федосьӏ",),
+                gender_inference="female",
+            ),
+            CanonicalEntity(
+                canonical_name="петръ",
+                aliases=("Петръ",),
+                source_files=("004.004.txt",),
+                evidence=("петра",),
+                gender_inference="not-inferred",
+            ),
+        ]
+        edges = [
+            SemanticEdge(
+                source="грикша",
+                target="ѥсифъ",
+                weight=1,
+                source_files=("003.003.txt",),
+                semantic_relation="not stated",
+                semantic_direction=None,
+                semantic_confidence=0.3,
+            ),
+            SemanticEdge(
+                source="ѥсифъ",
+                target="федосьꙗ",
+                weight=1,
+                source_files=("003.003.txt",),
+                semantic_relation="daughter of",
+                semantic_direction="target_to_source",
+                semantic_confidence=0.6,
+            ),
+            SemanticEdge(
+                source="грикша",
+                target="петръ",
+                weight=1,
+                source_files=("004.004.txt",),
+                semantic_relation="not stated",
+                semantic_direction=None,
+                semantic_confidence=0.2,
+            ),
+        ]
+        result = GraphBuilder().build(entities, edges)
+
+        self.assertEqual(result.graph.number_of_nodes(), 4)
+        self.assertEqual(result.graph.number_of_edges(), 3)
+        self.assertTrue(all(node in result.centrality for node in ["грикша", "ѥсифъ", "федосьꙗ", "петръ"]))
+        self.assertEqual(result.graph.edges[("грикша", "петръ")]["source_files"], ("004.004.txt",))
+        self.assertEqual(result.graph.nodes["федосьꙗ"]["aliases"], ("Федосьꙗ",))
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
