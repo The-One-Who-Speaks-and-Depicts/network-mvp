@@ -16,12 +16,13 @@ This repository currently contains:
 - file ingestion and original-text logging
 - normalization stage
 - lemmatization stage
+- candidate entity extraction
 
-It does **not yet** contain full text-processing pipeline. Current preprocessing stages exist as service layers, but container entrypoint still runs scaffold output only.
+It does **not yet** contain full text-processing pipeline. Current preprocessing and extraction stages exist as service layers, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.9.0-dev`
+Current development version: `0.10.0-dev`
 
 ## Requirements
 
@@ -156,6 +157,21 @@ Current service supports:
 - per-file writes to `output/lemmas/`
 - malformed or empty-output logs in `output/logs/lemmatization/`
 
+## Candidate entity extraction
+
+Current code includes candidate entity extraction service in `app/pipeline/entities.py`.
+
+Current service supports:
+
+- prompt template in `prompts/entity_extraction_prompt.txt`
+- per-file candidate extraction via LLM client
+- candidate record format with:
+  - file ID
+  - filename
+  - candidate name
+  - evidence text
+- direct-name-first parsing from tab-separated LLM output
+
 ## Local test run
 
 Run compile check:
@@ -241,7 +257,7 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- entity and relation extraction
+- merge logic and graph construction
 - graph generation and export
 
 ## Main project document

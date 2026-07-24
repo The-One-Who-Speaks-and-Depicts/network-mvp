@@ -17,7 +17,7 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 08 Normalization stage
 - [x] 08a Normalization fixtures and regression tests
 - [x] 09 Lemmatization stage
-- [ ] 10 Candidate entity extraction
+- [x] 10 Candidate entity extraction
 - [ ] 11 Entity merge logic
 - [ ] 12 Co-occurrence edge generation
 - [ ] 13 Semantic relation annotation
