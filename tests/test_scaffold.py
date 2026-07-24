@@ -28,6 +28,9 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/__init__.py"),
             Path("app/main.py"),
             Path("app/config.py"),
+            Path("requirements.txt"),
+            Path("Dockerfile"),
+            Path(".dockerignore"),
             Path("output/.gitkeep"),
             Path("logs/.gitkeep"),
         ]:
@@ -49,6 +52,14 @@ class ScaffoldTests(unittest.TestCase):
             check=True,
         )
         self.assertIn("Female Character Network Visualizer scaffold", result.stdout)
+
+
+    def test_requirements_include_core_dependencies(self) -> None:
+        requirements = Path("requirements.txt").read_text(encoding="utf-8")
+
+        for dependency in ["networkx", "pyvis", "pandas", "streamlit", "openai"]:
+            with self.subTest(dependency=dependency):
+                self.assertIn(dependency, requirements)
 
 
 if __name__ == "__main__":
