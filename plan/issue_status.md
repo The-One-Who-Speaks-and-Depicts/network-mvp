@@ -26,3 +26,4 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 16 Progress reporting
 - [x] 17 Smoke tests and schema tests
 - [x] 18 Documentation and runbook
+- [x] 19 Lemmatized pipeline alignment and quality gates
