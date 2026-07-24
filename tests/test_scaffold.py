@@ -7,6 +7,7 @@ import unittest
 from app.config import AppConfig, ConfigError
 from app.pipeline.cooccurrence import CooccurrenceEdge, CooccurrenceService
 from app.pipeline.entities import CandidateEntity, EntityExtractionService
+from app.pipeline.semantic_relations import SemanticEdge, SemanticRelationService
 from app.pipeline.entity_merge import CanonicalEntity, EntityMergeService
 from app.pipeline.file_ingestion import FileIngestionService, SourceFile
 from app.pipeline.lemmatization import LemmatizationService, LemmatizedFile
@@ -104,11 +105,13 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/pipeline/entities.py"),
             Path("app/pipeline/entity_merge.py"),
             Path("app/pipeline/cooccurrence.py"),
+            Path("app/pipeline/semantic_relations.py"),
             Path("app/services/docker_runner.py"),
             Path("app/services/llm_client.py"),
             Path("prompts/normalization_prompt.txt"),
             Path("prompts/lemmatization_prompt.txt"),
             Path("prompts/entity_extraction_prompt.txt"),
+            Path("prompts/semantic_relation_prompt.txt"),
             Path("requirements.txt"),
             Path("Dockerfile"),
             Path(".dockerignore"),
@@ -765,6 +768,126 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(edge_map[("грикша", "ѥсифъ")].source_files, ("003.003.txt",))
         self.assertEqual(edge_map[("федосьꙗ", "ѥсифъ")].weight, 1)
         self.assertEqual(edge_map[("петръ", "юрга")].weight, 1)
+
+    def test_semantic_relation_annotation_disabled_keeps_plain_edges(self) -> None:
+        edges = [
+            CooccurrenceEdge(
+                source="грикша",
+                target="ѥсифъ",
+                weight=1,
+                source_files=("003.003.txt",),
+            )
+        ]
+        service = SemanticRelationService(FakeLlmClient())
+
+        annotated = service.annotate_edges(edges, context_by_file={}, enabled=False)
+
+        self.assertEqual(len(annotated), 1)
+        self.assertIsInstance(annotated[0], SemanticEdge)
+        self.assertEqual(annotated[0].semantic_relation, None)
+        self.assertEqual(annotated[0].semantic_confidence, None)
+
+    def test_semantic_relation_annotation_parses_allowed_label(self) -> None:
+        edges = [
+            CooccurrenceEdge(
+                source="княгиня ольга",
+                target="игорь",
+                weight=1,
+                source_files=("001.txt",),
+            )
+        ]
+        client = FakeLlmClient(responses=["wife of\tsource_to_target\t0.8"])
+        service = SemanticRelationService(client)
+
+        annotated = service.annotate_edges(
+            edges,
+            context_by_file={"001.txt": "ольга и игорь"},
+            enabled=True,
+        )
+
+        self.assertEqual(annotated[0].semantic_relation, "wife of")
+        self.assertEqual(annotated[0].semantic_direction, "source_to_target")
+        self.assertEqual(annotated[0].semantic_confidence, 0.8)
+
+    def test_semantic_relation_annotation_maps_unknown_label_to_not_stated(self) -> None:
+        edges = [
+            CooccurrenceEdge(
+                source="грикша",
+                target="ѥсифъ",
+                weight=1,
+                source_files=("003.003.txt",),
+            )
+        ]
+        client = FakeLlmClient(responses=["ally of\tsource_to_target\t0.7"])
+        service = SemanticRelationService(client)
+
+        annotated = service.annotate_edges(
+            edges,
+            context_by_file={"003.003.txt": "грикша и ѥсифъ"},
+            enabled=True,
+        )
+
+        self.assertEqual(annotated[0].semantic_relation, "not stated")
+        self.assertEqual(annotated[0].semantic_confidence, 0.7)
+
+    def test_semantic_relation_annotation_falls_back_on_error(self) -> None:
+        edges = [
+            CooccurrenceEdge(
+                source="грикша",
+                target="ѥсифъ",
+                weight=1,
+                source_files=("003.003.txt",),
+            )
+        ]
+        client = FakeLlmClient(error=LlmClientError("request failed"))
+        service = SemanticRelationService(client)
+
+        annotated = service.annotate_edges(
+            edges,
+            context_by_file={"003.003.txt": "грикша и ѥсифъ"},
+            enabled=True,
+        )
+
+        self.assertEqual(annotated[0].semantic_relation, "not stated")
+        self.assertEqual(annotated[0].semantic_confidence, 0.0)
+
+    def test_semantic_relation_with_birchbark_style_context(self) -> None:
+        edges = [
+            CooccurrenceEdge(
+                source="грикша",
+                target="ѥсифъ",
+                weight=1,
+                source_files=("003.003.txt",),
+            ),
+            CooccurrenceEdge(
+                source="ѥсифъ",
+                target="федосьꙗ",
+                weight=1,
+                source_files=("003.003.txt",),
+            ),
+        ]
+        client = FakeLlmClient(
+            responses=[
+                "not stated\t\t0.3",
+                "daughter of\ttarget_to_source\t0.6",
+            ]
+        )
+        service = SemanticRelationService(client)
+
+        annotated = service.annotate_edges(
+            edges,
+            context_by_file={
+                "003.003.txt": "поклонъ ѿ грикши къ ѥсифу ... къ федосьӏ ...",
+            },
+            enabled=True,
+        )
+
+        self.assertEqual(annotated[0].semantic_relation, "not stated")
+        self.assertEqual(annotated[1].semantic_relation, "daughter of")
+        self.assertEqual(annotated[1].semantic_direction, "target_to_source")
+        self.assertEqual(annotated[1].semantic_confidence, 0.6)
+        self.assertIn("Entity A: грикша", client.prompts[0])
+        self.assertIn("Entity B: ѥсифъ", client.prompts[0])
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(

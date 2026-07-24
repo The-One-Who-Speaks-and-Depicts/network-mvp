@@ -19,12 +19,13 @@ This repository currently contains:
 - candidate entity extraction
 - entity merge logic
 - co-occurrence edge generation
+- semantic relation annotation
 
-It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, and edge-generation stages exist as service layers, but container entrypoint still runs scaffold output only.
+It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, and semantic-annotation stages exist as service layers, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.12.0-dev`
+Current development version: `0.13.0-dev`
 
 ## Requirements
 
@@ -199,6 +200,18 @@ Current service supports:
 - source-file tracking per edge
 - self-loop avoidance through unique pair combinations
 
+## Semantic relation annotation
+
+Current code includes semantic relation service in `app/pipeline/semantic_relations.py`.
+
+Current service supports:
+
+- prompt template in `prompts/semantic_relation_prompt.txt`
+- optional enable/disable behavior
+- allowed-label mapping to project schema
+- confidence parsing
+- `not stated` fallback on unknown labels or request failures
+
 ## Local test run
 
 Run compile check:
@@ -284,8 +297,8 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- semantic relation stage
-- graph generation and export
+- graph construction and export
+- progress reporting
 
 ## Main project document
 
