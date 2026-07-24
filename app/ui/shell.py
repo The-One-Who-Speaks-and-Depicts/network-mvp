@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.config import AppConfig, ConfigError
+from app.services.docker_runner import DockerRunner, DockerRunResult
 
 
 @dataclass(frozen=True)
@@ -15,14 +16,39 @@ class UiDefaults:
     model_name: str = ""
 
 
+@dataclass(frozen=True)
+class UiRunResponse:
+    config: AppConfig | None
+    status_message: str
+    result: DockerRunResult | None = None
+
+
 def default_form_values() -> UiDefaults:
     return UiDefaults()
 
 
-def handle_run_request(form_values: dict[str, object]) -> tuple[AppConfig | None, str]:
+def handle_run_request(
+    form_values: dict[str, object],
+    runner: DockerRunner | None = None,
+) -> UiRunResponse:
     try:
         config = AppConfig.from_mapping(form_values)
     except ConfigError as error:
-        return None, str(error)
+        return UiRunResponse(config=None, status_message=str(error))
 
-    return config, "Run requested. Pipeline execution not implemented yet."
+    active_runner = runner or DockerRunner()
+    result = active_runner.run(config)
+
+    if result.succeeded:
+        return UiRunResponse(
+            config=config,
+            status_message="Container run completed successfully.",
+            result=result,
+        )
+
+    error_message = result.stderr.strip() or result.stdout.strip() or "Unknown Docker error"
+    return UiRunResponse(
+        config=config,
+        status_message=f"Container run failed: {error_message}",
+        result=result,
+    )

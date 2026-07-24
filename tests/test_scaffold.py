@@ -4,7 +4,18 @@ import sys
 import unittest
 
 from app.config import AppConfig, ConfigError
-from app.ui.shell import UiDefaults, default_form_values, handle_run_request
+from app.services.docker_runner import DockerRunResult, DockerRunner
+from app.ui.shell import UiDefaults, UiRunResponse, default_form_values, handle_run_request
+
+
+class FakeRunner:
+    def __init__(self, result: DockerRunResult) -> None:
+        self.result = result
+        self.received_config: AppConfig | None = None
+
+    def run(self, config: AppConfig) -> DockerRunResult:
+        self.received_config = config
+        return self.result
 
 
 class ScaffoldTests(unittest.TestCase):
@@ -31,6 +42,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/config.py"),
             Path("app/ui/app.py"),
             Path("app/ui/shell.py"),
+            Path("app/services/docker_runner.py"),
             Path("requirements.txt"),
             Path("Dockerfile"),
             Path(".dockerignore"),
@@ -106,6 +118,29 @@ class ScaffoldTests(unittest.TestCase):
                 }
             )
 
+    def test_docker_runner_builds_expected_command(self) -> None:
+        config = AppConfig.from_mapping(
+            {
+                "input_dir": "./data",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                "model_name": "local-model",
+                "enable_semantic_annotation": True,
+                "enable_debug_logging": False,
+            }
+        )
+
+        command = DockerRunner(image_name="network-mvp:test").build_command(config)
+
+        self.assertEqual(command[0:3], ["docker", "run", "--rm"])
+        self.assertIn("NETWORK_MVP_INPUT_DIR=/data/input", command)
+        self.assertIn("NETWORK_MVP_OUTPUT_DIR=/data/output", command)
+        self.assertIn("NETWORK_MVP_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1", command)
+        self.assertIn("NETWORK_MVP_MODEL_NAME=local-model", command)
+        self.assertIn("NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION=true", command)
+        self.assertIn("NETWORK_MVP_ENABLE_DEBUG_LOGGING=false", command)
+        self.assertIn("network-mvp:test", command)
+
     def test_ui_defaults_include_required_input_fields(self) -> None:
         defaults = default_form_values()
 
@@ -116,20 +151,33 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(defaults.model_name, "")
 
     def test_ui_run_handler_accepts_valid_inputs(self) -> None:
-        config, status_message = handle_run_request(
+        runner = FakeRunner(
+            DockerRunResult(
+                command=["docker", "run"],
+                returncode=0,
+                stdout="ok",
+                stderr="",
+            )
+        )
+
+        response = handle_run_request(
             {
                 "input_dir": "./data",
                 "output_dir": "./output",
                 "lmstudio_base_url": "http://127.0.0.1:1234/v1",
                 "model_name": "local-model",
-            }
+            },
+            runner=runner,
         )
 
-        self.assertIsInstance(config, AppConfig)
-        self.assertEqual(status_message, "Run requested. Pipeline execution not implemented yet.")
+        self.assertIsInstance(response, UiRunResponse)
+        self.assertIsInstance(response.config, AppConfig)
+        self.assertEqual(response.status_message, "Container run completed successfully.")
+        self.assertEqual(response.result, runner.result)
+        self.assertIsNotNone(runner.received_config)
 
     def test_ui_run_handler_returns_clear_error_for_invalid_inputs(self) -> None:
-        config, status_message = handle_run_request(
+        response = handle_run_request(
             {
                 "input_dir": "",
                 "output_dir": "./output",
@@ -138,8 +186,32 @@ class ScaffoldTests(unittest.TestCase):
             }
         )
 
-        self.assertIsNone(config)
-        self.assertEqual(status_message, "Missing required configuration value: input_dir")
+        self.assertIsNone(response.config)
+        self.assertEqual(response.status_message, "Missing required configuration value: input_dir")
+        self.assertIsNone(response.result)
+
+    def test_ui_run_handler_returns_runner_failure_message(self) -> None:
+        runner = FakeRunner(
+            DockerRunResult(
+                command=["docker", "run"],
+                returncode=1,
+                stdout="",
+                stderr="boom",
+            )
+        )
+
+        response = handle_run_request(
+            {
+                "input_dir": "./data",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                "model_name": "local-model",
+            },
+            runner=runner,
+        )
+
+        self.assertEqual(response.status_message, "Container run failed: boom")
+        self.assertEqual(response.result, runner.result)
 
     def test_main_entrypoint_runs(self) -> None:
         result = subprocess.run(
@@ -150,6 +222,7 @@ class ScaffoldTests(unittest.TestCase):
         )
         self.assertIn("Female Character Network Visualizer scaffold", result.stdout)
         self.assertIn("streamlit run app/ui/app.py", result.stdout)
+        self.assertIn("UI launches Docker container", result.stdout)
 
     def test_requirements_include_core_dependencies(self) -> None:
         requirements = Path("requirements.txt").read_text(encoding="utf-8")

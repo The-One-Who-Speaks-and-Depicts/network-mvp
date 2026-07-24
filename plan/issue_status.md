@@ -11,7 +11,7 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 02 Dependencies and Dockerfile
 - [x] 03 Configuration model
 - [x] 04 UI shell
-- [ ] 05 Docker runner
+- [x] 05 Docker runner
 - [ ] 06 LLM client wrapper
 - [ ] 07 File ingestion and original-text logging
 - [ ] 08 Normalization stage

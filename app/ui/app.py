@@ -12,7 +12,7 @@ def main() -> None:
 
     st.set_page_config(page_title="Female Character Network Visualizer", layout="centered")
     st.title("Female Character Network Visualizer")
-    st.caption("Local UI shell. Pipeline execution not implemented yet.")
+    st.caption("Local UI shell with Docker runner.")
 
     with st.form("run_form"):
         input_dir = st.text_input("Corpus directory", value=defaults.input_dir)
@@ -27,7 +27,7 @@ def main() -> None:
     st.subheader("Status")
 
     if submitted:
-        _, status_message = handle_run_request(
+        response = handle_run_request(
             {
                 "input_dir": input_dir,
                 "output_dir": output_dir,
@@ -35,7 +35,16 @@ def main() -> None:
                 "model_name": model_name,
             }
         )
-        st.info(status_message)
+        if response.result and response.result.succeeded:
+            st.success(response.status_message)
+        else:
+            st.error(response.status_message)
+
+        if response.result:
+            if response.result.stdout.strip():
+                st.code(response.result.stdout.strip(), language="text")
+            if response.result.stderr.strip():
+                st.code(response.result.stderr.strip(), language="text")
     else:
         st.info("Ready. Enter run inputs, then click Start run.")
 
