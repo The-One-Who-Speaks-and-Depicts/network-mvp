@@ -8,7 +8,7 @@ Track implementation progress here. Every PR into `dev` must:
 ## Checklist
 
 - [x] 01 Repository scaffold
-- [ ] 02 Dependencies and Dockerfile
+- [x] 02 Dependencies and Dockerfile
 - [ ] 03 Configuration model
 - [ ] 04 UI shell
 - [ ] 05 Docker runner

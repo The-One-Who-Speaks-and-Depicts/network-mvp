@@ -36,6 +36,21 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
+  docker-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t network-mvp:test .
+
+      - name: Run container entrypoint
+        run: |
+          output=$(docker run --rm network-mvp:test)
+          echo "$output"
+          echo "$output" | grep 'Female Character Network Visualizer scaffold'
+
   pr-governance:
     if: github.event_name == 'pull_request' && github.base_ref == 'dev'
     runs-on: ubuntu-latest
