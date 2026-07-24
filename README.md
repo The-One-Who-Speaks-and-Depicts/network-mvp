@@ -17,12 +17,13 @@ This repository currently contains:
 - normalization stage
 - lemmatization stage
 - candidate entity extraction
+- entity merge logic
 
 It does **not yet** contain full text-processing pipeline. Current preprocessing and extraction stages exist as service layers, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.10.0-dev`
+Current development version: `0.11.0-dev`
 
 ## Requirements
 
@@ -172,6 +173,19 @@ Current service supports:
   - evidence text
 - direct-name-first parsing from tab-separated LLM output
 
+## Entity merge logic
+
+Current code includes entity merge service in `app/pipeline/entity_merge.py`.
+
+Current service supports:
+
+- canonical entity record generation
+- alias grouping
+- source-file aggregation
+- evidence aggregation
+- basic title stripping for canonicalization
+- basic `gender_inference` population
+
 ## Local test run
 
 Run compile check:
@@ -257,7 +271,7 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- merge logic and graph construction
+- co-occurrence and semantic relation stages
 - graph generation and export
 
 ## Main project document
