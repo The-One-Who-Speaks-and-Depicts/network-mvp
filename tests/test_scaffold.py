@@ -1,12 +1,14 @@
 """Scaffold and regression tests for application modules."""
 
+import io
 import json
 from pathlib import Path
 import subprocess
-import sys
 import tempfile
 import unittest
 from unittest import mock
+
+from app import main as app_main
 
 from app.config import AppConfig, ConfigError
 from app.graph.build import GraphBuildResult, GraphBuilder
@@ -1776,18 +1778,53 @@ class ScaffoldTests(unittest.TestCase):
             self.fail("expected progress state")
         self.assertEqual(progress_state.status, "failed")
 
-    def test_main_entrypoint_runs(self) -> None:
-        result = subprocess.run(
-            [sys.executable, "-m", "app.main"],
-            capture_output=True,
-            text=True,
-            check=True,
+    def test_main_entrypoint_runs_pipeline_and_reports_progress(self) -> None:
+        fake_client = FakeLlmClient(
+            responses=[
+                "княгиня грикша пишет к ѥсифу",
+                "княгиня грикша писать к ѥсифъ",
+                "Княгиня Грикша\tкнягиня грикша\nѤсифъ\tѥсифу",
+                "not stated\t\t0.2",
+            ]
         )
-        self.assertIn("Female Character Network Visualizer scaffold", result.stdout)
-        self.assertIn("streamlit run app/ui/app.py", result.stdout)
-        self.assertIn("UI launches Docker container", result.stdout)
-        self.assertIn("PROGRESS\tstage=startup", result.stdout)
-        self.assertIn("PROGRESS\tstage=scaffold", result.stdout)
+
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            input_dir = Path(input_temp_dir)
+            output_dir = Path(output_temp_dir)
+            (input_dir / "003.003.txt").write_text(
+                "Княгиня Грикша пишет к ѥсифу.",
+                encoding="utf-8",
+            )
+
+            buffer = io.StringIO()
+            with (
+                mock.patch(
+                    "app.main.LlmClient.from_config",
+                    return_value=fake_client,
+                ),
+                mock.patch.dict(
+                    "os.environ",
+                    {
+                        "NETWORK_MVP_INPUT_DIR": str(input_dir),
+                        "NETWORK_MVP_OUTPUT_DIR": str(output_dir),
+                        "NETWORK_MVP_LMSTUDIO_BASE_URL": "http://127.0.0.1:1234/v1",
+                        "NETWORK_MVP_MODEL_NAME": "local-model",
+                    },
+                    clear=False,
+                ),
+                mock.patch("sys.stdout", buffer),
+            ):
+                app_main.main()
+
+            stdout = buffer.getvalue()
+            self.assertIn("PROGRESS\tstage=startup", stdout)
+            self.assertIn("PROGRESS\tstage=ingestion\tcompleted=1\ttotal=1", stdout)
+            self.assertIn("PROGRESS\tstage=graph_export\tcompleted=1\ttotal=1", stdout)
+            self.assertTrue((output_dir / "graph.json").is_file())
+            self.assertTrue((output_dir / "graph.html").is_file())
 
     def test_runbook_documents_lm_studio_and_manual_cleanup(self) -> None:
         runbook = Path("RUNBOOK.md").read_text(encoding="utf-8")
