@@ -1,0 +1,11 @@
+Normalize following Old East Slavic text to canonical form.
+
+Rules:
+- preserve punctuation
+- remove line breaks
+- keep output as normalized text only
+- do not add commentary
+- keep token alignment where possible
+
+Text:
+{text}

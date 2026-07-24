@@ -14,12 +14,13 @@ This repository currently contains:
 - Docker runner wiring
 - LLM client wrapper
 - file ingestion and original-text logging
+- normalization stage
 
-It does **not yet** contain actual text-processing pipeline. Current UI can validate inputs and launch Docker container, but container still runs scaffold entrypoint only.
+It does **not yet** contain full text-processing pipeline. Current normalization stage exists as service layer, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.3.0-dev`
+Current development version: `0.8.0-dev`
 
 ## Requirements
 
@@ -131,6 +132,18 @@ Current service supports:
 - filename provenance retention
 - original-text export to `output/logs/original/`
 
+## Normalization
+
+Current code includes normalization service in `app/pipeline/normalization.py`.
+
+Current service supports:
+
+- prompt template in `prompts/normalization_prompt.txt`
+- per-file normalization requests via LLM client
+- line-break removal in normalized output
+- per-file writes to `output/normalized/`
+- malformed or empty-output logs in `output/logs/normalization/`
+
 ## Local test run
 
 Run compile check:
@@ -216,7 +229,7 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- preprocessing stages
+- remaining preprocessing stages
 - graph generation and export
 
 ## Main project document
