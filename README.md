@@ -1,6 +1,6 @@
 # Female Character Network Visualizer
 
-Current status: scaffold / early setup with local UI shell.
+Current status: scaffold / early setup with local UI shell and Docker runner.
 
 This repository currently contains:
 
@@ -11,8 +11,9 @@ This repository currently contains:
 - runnable Docker image
 - CI checks
 - local Streamlit UI shell
+- Docker runner wiring
 
-It does **not yet** contain actual text-processing pipeline. Current UI is shell only: it collects inputs and shows placeholder status message.
+It does **not yet** contain actual text-processing pipeline. Current UI can validate inputs and launch Docker container, but container still runs scaffold entrypoint only.
 
 ## Version
 
@@ -97,7 +98,7 @@ Current UI provides:
 - LM Studio base URL field
 - model name field
 - Start run button
-- placeholder status area
+- status area with container stdout/stderr
 
 ## Local test run
 
@@ -131,7 +132,25 @@ Expected output:
 
 ```text
 Female Character Network Visualizer scaffold
+Start local UI with: streamlit run app/ui/app.py
+UI launches Docker container for pipeline runs
 ```
+
+## Docker runner behavior
+
+Current Docker runner mounts:
+
+- input directory to `/data/input`
+- output directory to `/data/output`
+
+Current Docker runner passes environment variables into container:
+
+- `NETWORK_MVP_INPUT_DIR=/data/input`
+- `NETWORK_MVP_OUTPUT_DIR=/data/output`
+- `NETWORK_MVP_LMSTUDIO_BASE_URL=...`
+- `NETWORK_MVP_MODEL_NAME=...`
+- `NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION=...`
+- `NETWORK_MVP_ENABLE_DEBUG_LOGGING=...`
 
 ## Docker permissions note
 
@@ -166,7 +185,6 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- Docker runner integration
 - LM Studio client
 - preprocessing pipeline
 - graph generation and export
