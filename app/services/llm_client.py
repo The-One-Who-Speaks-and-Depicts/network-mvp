@@ -3,18 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
-
-try:
-    from openai import OpenAI as OPENAI_CLIENT
-except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in local envs
-    OPENAI_CLIENT = None
+import importlib
+from typing import Any, Callable, Protocol
 
 from app.config import AppConfig
 
 
 class LlmClientError(RuntimeError):
     """Raised when LLM request fails or response is unusable."""
+
+
+class PromptingClient(Protocol):
+    def prompt(self, prompt_text: str, system_prompt: str | None = None) -> "LlmResponse":
+        ...
 
 
 @dataclass(frozen=True)
@@ -92,6 +93,9 @@ def _extract_text(response: Any) -> str:
 
 
 def _default_client_factory(*, base_url: str, timeout: float) -> Any:
-    if OPENAI_CLIENT is None:
-        raise LlmClientError("openai package is required for default client factory")
-    return OPENAI_CLIENT(base_url=base_url, timeout=timeout)
+    try:
+        openai_module = importlib.import_module("openai")
+    except ModuleNotFoundError as error:
+        raise LlmClientError("openai package is required for default client factory") from error
+    openai_client_class = getattr(openai_module, "OpenAI")
+    return openai_client_class(base_url=base_url, timeout=timeout)

@@ -21,8 +21,9 @@ from app.services.llm_client import LlmClient, LlmClientError, LlmResponse
 from app.ui.shell import UiDefaults, UiRunResponse, default_form_values, handle_run_request
 
 
-class FakeRunner:
+class FakeRunner(DockerRunner):
     def __init__(self, result: DockerRunResult) -> None:
+        super().__init__(image_name="network-mvp:test")
         self.result = result
         self.received_config: AppConfig | None = None
 
@@ -1237,10 +1238,13 @@ class ScaffoldTests(unittest.TestCase):
         )
 
         self.assertIsNotNone(response.progress_state)
-        self.assertEqual(response.progress_state.current_stage, "graph_export")
-        self.assertEqual(response.progress_state.completed_files, 5)
-        self.assertEqual(response.progress_state.total_files, 5)
-        self.assertEqual(response.progress_state.status, "completed")
+        progress_state = response.progress_state
+        if progress_state is None:
+            self.fail("expected progress state")
+        self.assertEqual(progress_state.current_stage, "graph_export")
+        self.assertEqual(progress_state.completed_files, 5)
+        self.assertEqual(progress_state.total_files, 5)
+        self.assertEqual(progress_state.status, "completed")
 
     def test_graph_export_json_schema_shape(self) -> None:
         entities = [
@@ -1530,7 +1534,10 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(response.result, runner.result)
         self.assertIsNotNone(runner.received_config)
         self.assertIsNotNone(response.progress_state)
-        self.assertEqual(response.progress_state.current_stage, "completed")
+        progress_state = response.progress_state
+        if progress_state is None:
+            self.fail("expected progress state")
+        self.assertEqual(progress_state.current_stage, "completed")
 
     def test_ui_run_handler_returns_clear_error_for_invalid_inputs(self) -> None:
         response = handle_run_request(
@@ -1569,7 +1576,10 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(response.status_message, "Container run failed: boom")
         self.assertEqual(response.result, runner.result)
         self.assertIsNotNone(response.progress_state)
-        self.assertEqual(response.progress_state.status, "failed")
+        progress_state = response.progress_state
+        if progress_state is None:
+            self.fail("expected progress state")
+        self.assertEqual(progress_state.status, "failed")
 
     def test_main_entrypoint_runs(self) -> None:
         result = subprocess.run(

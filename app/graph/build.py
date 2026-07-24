@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-from typing import Any
+from typing import Any, cast
 
 try:
     import networkx as NETWORKX
@@ -28,7 +28,7 @@ class SimpleEdgeView:
     def __getitem__(self, key: tuple[str, str]) -> dict[str, object]:
         if key in self._data:
             return self._data[key]
-        normalized_key = tuple(sorted(key))
+        normalized_key = cast(tuple[str, str], tuple(sorted(key)))
         return self._data[normalized_key]
 
     def __len__(self) -> int:
@@ -44,7 +44,7 @@ class SimpleGraph:
         self.nodes[node_name] = dict(attributes)
 
     def add_edge(self, source: str, target: str, **attributes: object) -> None:
-        key = tuple(sorted((source, target)))
+        key = cast(tuple[str, str], tuple(sorted((source, target))))
         self.edges.add(key[0], key[1], dict(attributes))
 
     def number_of_nodes(self) -> int:
@@ -112,7 +112,10 @@ class GraphBuilder:
 
         if NETWORKX is not None:
             try:
-                return NETWORKX.eigenvector_centrality(graph, weight="weight", max_iter=1000)
+                return cast(
+                    dict[str, float],
+                    NETWORKX.eigenvector_centrality(graph, weight="weight", max_iter=1000),
+                )
             except NETWORKX.NetworkXException as error:
                 warnings.append(f"Eigenvector centrality failed: {error}")
                 return {node: 0.0 for node in graph.nodes}
@@ -128,7 +131,7 @@ class GraphBuilder:
         for _ in range(100):
             next_values = [0.0 for _ in nodes]
             for (source, target), attributes in graph.edges._data.items():
-                weight = float(attributes.get("weight", 1.0))
+                weight = float(cast(float | int | str, attributes.get("weight", 1.0)))
                 source_index = index[source]
                 target_index = index[target]
                 next_values[source_index] += weight * values[target_index]
