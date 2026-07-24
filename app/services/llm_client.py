@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 try:
-    from openai import OpenAI
+    from openai import OpenAI as OPENAI_CLIENT
 except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in local envs
-    OpenAI = None
+    OPENAI_CLIENT = None
 
 from app.config import AppConfig
 
@@ -92,6 +92,6 @@ def _extract_text(response: Any) -> str:
 
 
 def _default_client_factory(*, base_url: str, timeout: float) -> Any:
-    if OpenAI is None:
+    if OPENAI_CLIENT is None:
         raise LlmClientError("openai package is required for default client factory")
-    return OpenAI(base_url=base_url, timeout=timeout)
+    return OPENAI_CLIENT(base_url=base_url, timeout=timeout)
