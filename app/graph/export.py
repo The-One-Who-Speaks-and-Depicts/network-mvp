@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from pyvis.network import Network
+    from pyvis.network import Network as PYVIS_NETWORK
 except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in local envs
-    Network = None
+    PYVIS_NETWORK = None
 
 
 @dataclass(frozen=True)
@@ -65,11 +65,11 @@ class GraphExporter:
         return edges
 
     def _write_html(self, graph: Any, html_path: Path) -> None:
-        if Network is None:
+        if PYVIS_NETWORK is None:
             html_path.write_text(self._fallback_html(graph), encoding="utf-8")
             return
 
-        network = Network(height="750px", width="100%", bgcolor="#ffffff", font_color="#000000")
+        network = PYVIS_NETWORK(height="750px", width="100%", bgcolor="#ffffff", font_color="#000000")
         for node_name, attributes in self._iter_nodes(graph):
             centrality = attributes.get("centrality_eigenvector", 0.0)
             source_files = tuple(attributes.get("source_files", ()))

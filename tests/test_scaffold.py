@@ -989,9 +989,9 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(result.graph.nodes["федосьꙗ"]["gender_inference"], "female")
         self.assertIn("centrality_eigenvector", result.graph.nodes["грикша"])
         self.assertEqual(result.graph.edges[("ѥсифъ", "федосьꙗ")]["semantic_relation"], "daughter of")
-        self.assertTrue(
-            result.warnings == ()
-            or result.warnings == ("networkx not available; using fallback eigenvector centrality.",)
+        self.assertIn(
+            result.warnings,
+            ((), ("networkx not available; using fallback eigenvector centrality.",)),
         )
 
     def test_graph_builder_handles_edgeless_graph(self) -> None:

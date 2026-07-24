@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+try:
+    from openai import OpenAI
+except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in local envs
+    OpenAI = None
+
 from app.config import AppConfig
 
 
@@ -87,6 +92,6 @@ def _extract_text(response: Any) -> str:
 
 
 def _default_client_factory(*, base_url: str, timeout: float) -> Any:
-    from openai import OpenAI
-
+    if OpenAI is None:
+        raise LlmClientError("openai package is required for default client factory")
     return OpenAI(base_url=base_url, timeout=timeout)

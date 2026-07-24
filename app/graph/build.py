@@ -7,9 +7,9 @@ import math
 from typing import Any
 
 try:
-    import networkx as nx
+    import networkx as NETWORKX
 except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in local envs
-    nx = None
+    NETWORKX = None
 
 from app.pipeline.entity_merge import CanonicalEntity
 from app.pipeline.semantic_relations import SemanticEdge
@@ -67,7 +67,7 @@ class GraphBuilder:
         entities: list[CanonicalEntity],
         edges: list[SemanticEdge],
     ) -> GraphBuildResult:
-        graph = nx.Graph() if nx is not None else SimpleGraph()
+        graph = NETWORKX.Graph() if NETWORKX is not None else SimpleGraph()
 
         for entity in entities:
             graph.add_node(
@@ -110,10 +110,10 @@ class GraphBuilder:
             warnings.append("Graph has no edges; centrality defaults to 0.0 for all nodes.")
             return {node: 0.0 for node in graph.nodes}
 
-        if nx is not None:
+        if NETWORKX is not None:
             try:
-                return nx.eigenvector_centrality(graph, weight="weight", max_iter=1000)
-            except nx.NetworkXException as error:
+                return NETWORKX.eigenvector_centrality(graph, weight="weight", max_iter=1000)
+            except NETWORKX.NetworkXException as error:
                 warnings.append(f"Eigenvector centrality failed: {error}")
                 return {node: 0.0 for node in graph.nodes}
 

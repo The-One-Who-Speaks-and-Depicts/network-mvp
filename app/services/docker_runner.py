@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 import subprocess
 
 from app.config import AppConfig
@@ -35,9 +34,9 @@ class DockerRunner:
             "-v",
             f"{config.output_dir.resolve()}:/data/output",
             "-e",
-            f"NETWORK_MVP_INPUT_DIR=/data/input",
+            "NETWORK_MVP_INPUT_DIR=/data/input",
             "-e",
-            f"NETWORK_MVP_OUTPUT_DIR=/data/output",
+            "NETWORK_MVP_OUTPUT_DIR=/data/output",
             "-e",
             f"NETWORK_MVP_LMSTUDIO_BASE_URL={config.lmstudio_base_url}",
             "-e",
