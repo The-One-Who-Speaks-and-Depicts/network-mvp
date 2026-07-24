@@ -406,6 +406,55 @@ class ScaffoldTests(unittest.TestCase):
             self.assertTrue(log_path.is_file())
             self.assertIn("request failed", log_path.read_text(encoding="utf-8"))
 
+    def test_lemmatization_with_zenodo_birchbark_fixtures(self) -> None:
+        normalized_files = [
+            NormalizedFile(
+                file_id="text_0001",
+                filename="003.003.txt",
+                normalized_text="поклонъ ѿ грикши къ ѥсифу приславъ ꙩнаньꙗ молви♮ ꙗзъ ѥму ѿвѣчалъ",
+                output_path=Path("/tmp/text_0001_003.003.txt"),
+            ),
+            NormalizedFile(
+                file_id="text_0002",
+                filename="004.004.txt",
+                normalized_text="ѿ микит·ѣ · ко цертѹ · цто ѥсм·ь · ♮руцилъ · ѹ петра",
+                output_path=Path("/tmp/text_0002_004.004.txt"),
+            ),
+            NormalizedFile(
+                file_id="text_0003",
+                filename="005.005.txt",
+                normalized_text="♮но ѿ давꙑ♮ ♮есиѳа · къ матѳѣю · постои · за нашего сироту ·",
+                output_path=Path("/tmp/text_0003_005.005.txt"),
+            ),
+        ]
+        client = FakeLlmClient(
+            responses=[
+                "поклонъ ѿ грикша къ ѥсифъ\n прислати ꙩнаньꙗ молвити ꙗзъ ѥмоу ѿвѣчати",
+                "ѿ микита · ко цертъ ·\n что ѥсмь · ручити · ѹ петръ",
+                "но ѿ давы ♮есиѳа ·\n къ матѳѣи · постоѧти · за нашь сирота ·",
+            ]
+        )
+        service = LemmatizationService(client)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            lemmatized_files = service.lemmatize_files(normalized_files, output_dir)
+
+            self.assertEqual([file.file_id for file in lemmatized_files], ["text_0001", "text_0002", "text_0003"])
+            self.assertEqual([file.filename for file in lemmatized_files], ["003.003.txt", "004.004.txt", "005.005.txt"])
+            self.assertEqual(
+                [file.lemma_text for file in lemmatized_files],
+                [
+                    "поклонъ ѿ грикша къ ѥсифъ прислати ꙩнаньꙗ молвити ꙗзъ ѥмоу ѿвѣчати",
+                    "ѿ микита · ко цертъ · что ѥсмь · ручити · ѹ петръ",
+                    "но ѿ давы ♮есиѳа · къ матѳѣи · постоѧти · за нашь сирота ·",
+                ],
+            )
+            self.assertTrue((output_dir / "lemmas" / "text_0001_003.003.txt").is_file())
+            self.assertTrue((output_dir / "lemmas" / "text_0002_004.004.txt").is_file())
+            self.assertTrue((output_dir / "lemmas" / "text_0003_005.005.txt").is_file())
+            self.assertIn("поклонъ ѿ грикши", client.prompts[0])
+
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
             {
