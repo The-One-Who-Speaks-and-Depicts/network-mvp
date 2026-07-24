@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 
 from app.pipeline.cooccurrence import CooccurrenceEdge
@@ -54,23 +54,31 @@ class SemanticRelationService:
     def annotate_edges(
         self,
         edges: list[CooccurrenceEdge],
-        context_by_file: dict[str, str],
+        lemmatized_context_by_file: dict[str, str],
         enabled: bool = True,
+        source_context_by_file: dict[str, str] | None = None,
     ) -> list[SemanticEdge]:
         if not enabled:
             return [self._to_semantic_edge(edge) for edge in edges]
 
         prompt_template = self.prompt_template_path.read_text(encoding="utf-8")
         annotated: list[SemanticEdge] = []
+        source_context_lookup = source_context_by_file or {}
 
         for edge in edges:
-            context = "\n".join(
-                context_by_file[source_file]
+            lemmatized_context = "\n".join(
+                lemmatized_context_by_file[source_file]
                 for source_file in edge.source_files
-                if source_file in context_by_file
+                if source_file in lemmatized_context_by_file
+            )
+            source_context = "\n".join(
+                source_context_lookup[source_file]
+                for source_file in edge.source_files
+                if source_file in source_context_lookup
             )
             prompt = prompt_template.format(
-                context=context,
+                lemma_context=lemmatized_context,
+                source_context=source_context or lemmatized_context,
                 source=edge.source,
                 target=edge.target,
             )
@@ -106,8 +114,11 @@ class SemanticRelationService:
         except ValueError as error:
             raise ValueError("invalid semantic annotation confidence") from error
 
+        if not 0.0 <= confidence <= 1.0:
+            raise ValueError("invalid semantic annotation confidence range")
+
         if relation not in ALLOWED_RELATIONS:
-            relation = "not stated"
+            return "not stated", None, 0.0
 
         return relation, direction, confidence
 

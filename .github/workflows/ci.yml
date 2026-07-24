@@ -39,6 +39,12 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
+      - name: Run pylint
+        run: python -m pylint app tests scripts
+
+      - name: Run mypy
+        run: python -m mypy app tests scripts
+
   docker-checks:
     runs-on: ubuntu-latest
     steps:

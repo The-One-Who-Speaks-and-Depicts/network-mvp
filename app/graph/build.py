@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
 import math
+from typing import Any
 
 try:
     import networkx as nx
@@ -56,7 +56,7 @@ class SimpleGraph:
 
 @dataclass(frozen=True)
 class GraphBuildResult:
-    graph: object
+    graph: Any
     centrality: dict[str, float]
     warnings: tuple[str, ...]
 
@@ -101,7 +101,7 @@ class GraphBuilder:
             warnings=tuple(warnings),
         )
 
-    def _compute_centrality(self, graph: object, warnings: list[str]) -> dict[str, float]:
+    def _compute_centrality(self, graph: Any, warnings: list[str]) -> dict[str, float]:
         if graph.number_of_nodes() == 0:
             warnings.append("Graph has no nodes; centrality skipped.")
             return {}

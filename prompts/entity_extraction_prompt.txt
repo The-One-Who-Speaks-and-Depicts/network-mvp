@@ -1,10 +1,15 @@
-Extract candidate named characters from following text.
+Extract candidate named characters from following lemmatized text.
 
 Rules:
+- use lemmatized text as primary extraction source
+- use source text only to preserve evidence snippets when possible
 - prioritize direct name mentions
 - return one candidate per line
 - each line format: name<TAB>evidence
 - no commentary
 
-Text:
-{text}
+Lemmatized text:
+{lemma_text}
+
+Source text:
+{source_text}

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.pipeline.entities import CandidateEntity
 
@@ -16,31 +16,42 @@ class CanonicalEntity:
     gender_inference: str
 
 
+@dataclass
+class _MergeAccumulator:
+    aliases: set[str] = field(default_factory=set)
+    source_files: set[str] = field(default_factory=set)
+    evidence: set[str] = field(default_factory=set)
+    gender_inference: str = "not-inferred"
+
+
 class EntityMergeService:
     def merge_candidates(self, candidates: list[CandidateEntity]) -> list[CanonicalEntity]:
-        merged: dict[str, dict[str, set[str] | str]] = {}
+        merged: dict[str, _MergeAccumulator] = {}
 
         for candidate in candidates:
             canonical_name = self._canonicalize_name(candidate.name)
+            candidate_gender = self._infer_gender(candidate.name)
             if canonical_name not in merged:
-                merged[canonical_name] = {
-                    "aliases": set(),
-                    "source_files": set(),
-                    "evidence": set(),
-                    "gender_inference": self._infer_gender(candidate.name),
-                }
+                merged[canonical_name] = _MergeAccumulator(
+                    gender_inference=candidate_gender
+                )
+            else:
+                merged[canonical_name].gender_inference = self._merge_gender(
+                    merged[canonical_name].gender_inference,
+                    candidate_gender,
+                )
 
-            merged[canonical_name]["aliases"].add(candidate.name)
-            merged[canonical_name]["source_files"].add(candidate.filename)
-            merged[canonical_name]["evidence"].add(candidate.evidence)
+            merged[canonical_name].aliases.add(candidate.name)
+            merged[canonical_name].source_files.add(candidate.filename)
+            merged[canonical_name].evidence.add(candidate.evidence)
 
         return [
             CanonicalEntity(
                 canonical_name=canonical_name,
-                aliases=tuple(sorted(data["aliases"])),
-                source_files=tuple(sorted(data["source_files"])),
-                evidence=tuple(sorted(data["evidence"])),
-                gender_inference=str(data["gender_inference"]),
+                aliases=tuple(sorted(data.aliases)),
+                source_files=tuple(sorted(data.source_files)),
+                evidence=tuple(sorted(data.evidence)),
+                gender_inference=data.gender_inference,
             )
             for canonical_name, data in sorted(merged.items())
         ]
@@ -53,9 +64,22 @@ class EntityMergeService:
         return sanitized
 
     def _infer_gender(self, name: str) -> str:
-        lowered = name.lower()
+        lowered = name.lower().strip()
+        if lowered.startswith(("княгиня ", "госпожа ")):
+            return "female"
         if lowered.endswith(("а", "ѧ", "ꙗ")):
             return "female"
         if lowered.endswith(("ъ", "ь")):
             return "not-inferred"
+        if lowered:
+            return "unresolved"
+        return "not-inferred"
+
+    def _merge_gender(self, existing: str, incoming: str) -> str:
+        if existing == incoming:
+            return existing
+        if "female" in {existing, incoming}:
+            return "ambiguous"
+        if "unresolved" in {existing, incoming}:
+            return "unresolved"
         return "not-inferred"

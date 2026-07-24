@@ -24,13 +24,18 @@ Return format:
 label<TAB>direction<TAB>confidence
 
 Rules:
+- use lemmatized context as primary relation source
+- use source text only as supporting evidence
 - use only allowed labels
 - if relation does not fit schema, return `not stated`
 - confidence must be float between 0 and 1
 - no commentary
 
-Context:
-{context}
+Lemmatized context:
+{lemma_context}
+
+Source text context:
+{source_context}
 
 Entity A: {source}
 Entity B: {target}

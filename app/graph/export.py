@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+from typing import Any
 
 try:
     from pyvis.network import Network
@@ -19,7 +20,7 @@ class GraphExportResult:
 
 
 class GraphExporter:
-    def export(self, graph: object, output_dir: Path) -> GraphExportResult:
+    def export(self, graph: Any, output_dir: Path) -> GraphExportResult:
         output_dir.mkdir(parents=True, exist_ok=True)
         json_path = output_dir / "graph.json"
         html_path = output_dir / "graph.html"
@@ -33,7 +34,7 @@ class GraphExporter:
 
         return GraphExportResult(json_path=json_path, html_path=html_path)
 
-    def _serialize_nodes(self, graph: object) -> list[dict[str, object]]:
+    def _serialize_nodes(self, graph: Any) -> list[dict[str, object]]:
         nodes: list[dict[str, object]] = []
         for node_name, attributes in self._iter_nodes(graph):
             node_record = {
@@ -48,7 +49,7 @@ class GraphExporter:
             nodes.append(node_record)
         return nodes
 
-    def _serialize_edges(self, graph: object) -> list[dict[str, object]]:
+    def _serialize_edges(self, graph: Any) -> list[dict[str, object]]:
         edges: list[dict[str, object]] = []
         for source, target, attributes in self._iter_edges(graph):
             edge_record = {
@@ -63,7 +64,7 @@ class GraphExporter:
             edges.append(edge_record)
         return edges
 
-    def _write_html(self, graph: object, html_path: Path) -> None:
+    def _write_html(self, graph: Any, html_path: Path) -> None:
         if Network is None:
             html_path.write_text(self._fallback_html(graph), encoding="utf-8")
             return
@@ -100,7 +101,7 @@ class GraphExporter:
 
         network.write_html(str(html_path), notebook=False)
 
-    def _fallback_html(self, graph: object) -> str:
+    def _fallback_html(self, graph: Any) -> str:
         payload = {
             "nodes": self._serialize_nodes(graph),
             "edges": self._serialize_edges(graph),
@@ -122,12 +123,12 @@ class GraphExporter:
 </html>
 """
 
-    def _iter_nodes(self, graph: object):
+    def _iter_nodes(self, graph: Any):
         if hasattr(graph, "nodes") and callable(getattr(graph.nodes, "data", None)):
             return graph.nodes(data=True)
         return graph.nodes.items()
 
-    def _iter_edges(self, graph: object):
+    def _iter_edges(self, graph: Any):
         if hasattr(graph, "edges") and callable(getattr(graph.edges, "data", None)):
             return graph.edges(data=True)
         return [(source, target, attributes) for (source, target), attributes in graph.edges._data.items()]
