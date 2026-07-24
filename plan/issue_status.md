@@ -13,7 +13,7 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 04 UI shell
 - [x] 05 Docker runner
 - [x] 06 LLM client wrapper
-- [ ] 07 File ingestion and original-text logging
+- [x] 07 File ingestion and original-text logging
 - [ ] 08 Normalization stage
 - [ ] 09 Lemmatization stage
 - [ ] 10 Candidate entity extraction

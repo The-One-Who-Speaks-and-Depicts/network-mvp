@@ -1,6 +1,6 @@
 # Female Character Network Visualizer
 
-Current status: scaffold / early setup with local UI shell, Docker runner, and LLM client wrapper.
+Current status: early setup with local UI shell, Docker runner, LLM client wrapper, and file ingestion.
 
 This repository currently contains:
 
@@ -13,6 +13,7 @@ This repository currently contains:
 - local Streamlit UI shell
 - Docker runner wiring
 - LLM client wrapper
+- file ingestion and original-text logging
 
 It does **not yet** contain actual text-processing pipeline. Current UI can validate inputs and launch Docker container, but container still runs scaffold entrypoint only.
 
@@ -118,6 +119,18 @@ Current UI provides:
 - Start run button
 - status area with container stdout/stderr
 
+## File ingestion
+
+Current code includes file ingestion service in `app/pipeline/file_ingestion.py`.
+
+Current service supports:
+
+- recursive `.txt` discovery
+- stable file IDs
+- per-file UTF-8 loading
+- filename provenance retention
+- original-text export to `output/logs/original/`
+
 ## Local test run
 
 Run compile check:
@@ -203,7 +216,7 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- preprocessing pipeline
+- preprocessing stages
 - graph generation and export
 
 ## Main project document
