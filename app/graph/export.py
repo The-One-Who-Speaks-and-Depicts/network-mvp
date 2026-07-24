@@ -74,6 +74,7 @@ class GraphExporter:
             width="100%",
             bgcolor="#ffffff",
             font_color="#000000",
+            cdn_resources="in_line",
         )
         for node_name, attributes in self._iter_nodes(graph):
             centrality = attributes.get("centrality_eigenvector", 0.0)
