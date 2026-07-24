@@ -1543,7 +1543,7 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("NETWORK_MVP_ENABLE_DEBUG_LOGGING=false", command)
         self.assertIn("network-mvp:test", command)
 
-    def test_docker_runner_builds_missing_image_before_run(self) -> None:
+    def test_docker_runner_builds_image_before_run(self) -> None:
         config = AppConfig.from_mapping(
             {
                 "input_dir": "./data",
@@ -1556,12 +1556,6 @@ class ScaffoldTests(unittest.TestCase):
 
         with mock.patch("app.services.docker_runner.subprocess.run") as mock_run:
             mock_run.side_effect = [
-                subprocess.CompletedProcess(
-                    ["docker", "image", "inspect", "network-mvp:test"],
-                    1,
-                    stdout="",
-                    stderr="missing",
-                ),
                 subprocess.CompletedProcess(
                     ["docker", "build", "-t", "network-mvp:test", "."],
                     0,
@@ -1579,9 +1573,9 @@ class ScaffoldTests(unittest.TestCase):
             result = runner.run(config)
 
         self.assertTrue(result.succeeded)
-        self.assertEqual(mock_run.call_args_list[1].kwargs["cwd"], runner.project_root)
+        self.assertEqual(mock_run.call_args_list[0].kwargs["cwd"], runner.project_root)
         self.assertEqual(
-            mock_run.call_args_list[1].args[0],
+            mock_run.call_args_list[0].args[0],
             ["docker", "build", "-t", "network-mvp:test", "."],
         )
 
@@ -1598,12 +1592,6 @@ class ScaffoldTests(unittest.TestCase):
 
         with mock.patch("app.services.docker_runner.subprocess.run") as mock_run:
             mock_run.side_effect = [
-                subprocess.CompletedProcess(
-                    ["docker", "image", "inspect", "network-mvp:test"],
-                    1,
-                    stdout="",
-                    stderr="missing",
-                ),
                 subprocess.CompletedProcess(
                     ["docker", "build", "-t", "network-mvp:test", "."],
                     1,

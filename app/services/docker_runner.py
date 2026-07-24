@@ -58,9 +58,9 @@ class DockerRunner:
 
     def run(self, config: AppConfig) -> DockerRunResult:
         config.output_dir.mkdir(parents=True, exist_ok=True)
-        ensure_result = self._ensure_image_available()
-        if ensure_result is not None:
-            return ensure_result
+        build_result = self._build_image()
+        if build_result is not None:
+            return build_result
 
         command = self.build_command(config)
         completed = subprocess.run(
@@ -76,17 +76,7 @@ class DockerRunner:
             stderr=completed.stderr,
         )
 
-    def _ensure_image_available(self) -> DockerRunResult | None:
-        inspect_command = ["docker", "image", "inspect", self.image_name]
-        inspect_result = subprocess.run(
-            inspect_command,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if inspect_result.returncode == 0:
-            return None
-
+    def _build_image(self) -> DockerRunResult | None:
         build_command = self.build_image_command()
         build_result = subprocess.run(
             build_command,
