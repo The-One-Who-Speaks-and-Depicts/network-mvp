@@ -21,12 +21,13 @@ This repository currently contains:
 - co-occurrence edge generation
 - semantic relation annotation
 - graph construction and centrality
+- graph JSON and HTML export
 
-It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, semantic-annotation, and graph-construction stages exist as service layers, but container entrypoint still runs scaffold output only.
+It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, semantic-annotation, graph-construction, and export stages exist as service layers, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.14.0-dev`
+Current development version: `0.15.0-dev`
 
 ## Requirements
 
@@ -231,6 +232,19 @@ Current service supports:
 - warning capture for empty or problematic graphs
 - centrality write-back onto node attributes
 
+## Graph export
+
+Current code includes graph exporter in `app/graph/export.py`.
+
+Current service supports:
+
+- `graph.json` export with node and edge records
+- node centrality in JSON output
+- node and edge source references in JSON output
+- static HTML artifact export
+- pyvis-backed HTML when dependency is available
+- fallback static HTML artifact when pyvis is unavailable
+
 ## Local test run
 
 Run compile check:
@@ -316,8 +330,8 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- graph export
 - progress reporting
+- smoke and schema validation
 
 ## Main project document
 
