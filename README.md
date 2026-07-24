@@ -1,6 +1,6 @@
 # Female Character Network Visualizer
 
-Current status: scaffolded local workflow with documented setup, runbook, service-layer pipeline stages, export path, and validation coverage.
+Current status: scaffolded local workflow with documented setup, service-layer preprocessing, lemma-based extraction/annotation, graph export, progress reporting, validation coverage, and operator documentation.
 
 This repository currently contains:
 
@@ -52,6 +52,13 @@ Recommended local LLM context:
 - OpenAI-compatible server mode enabled
 - default endpoint `http://127.0.0.1:1234/v1`
 - exact loaded model name available for UI form
+
+Developer checks now also include:
+
+```bash
+python3 -m pylint app tests scripts
+python3 -m mypy app tests scripts
+```
 
 ## Repository layout
 
@@ -219,7 +226,8 @@ Current code includes candidate entity extraction service in `app/pipeline/entit
 Current service supports:
 
 - prompt template in `prompts/entity_extraction_prompt.txt`
-- per-file candidate extraction via LLM client
+- per-file candidate extraction from lemmatized text via LLM client
+- original/source text retained in prompt as supporting evidence context
 - candidate record format with:
   - file ID
   - filename
@@ -238,7 +246,11 @@ Current service supports:
 - source-file aggregation
 - evidence aggregation
 - basic title stripping for canonicalization
-- basic `gender_inference` population
+- `gender_inference` population aligned with project schema:
+  - `female`
+  - `ambiguous`
+  - `unresolved`
+  - `not-inferred`
 
 ## Co-occurrence edge generation
 
@@ -260,6 +272,8 @@ Current service supports:
 
 - prompt template in `prompts/semantic_relation_prompt.txt`
 - optional enable/disable behavior
+- semantic annotation from lemmatized per-file context
+- original/source text retained as supporting context for evidence-sensitive cases
 - allowed-label mapping to project schema
 - confidence parsing
 - `not stated` fallback on unknown labels or request failures
@@ -328,10 +342,10 @@ Smoke flow covers:
 - ingestion
 - normalization
 - lemmatization
-- entity extraction
+- entity extraction from lemmatized text
 - entity merge
 - co-occurrence generation
-- semantic annotation
+- semantic annotation from lemmatized context
 - graph build
 - graph export
 
@@ -347,6 +361,13 @@ Run tests:
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+Run lint and type checks:
+
+```bash
+python3 -m pylint app tests scripts
+python3 -m mypy app tests scripts
 ```
 
 ## Manual post-processing expectations
@@ -446,6 +467,8 @@ Current GitHub Actions pipeline checks:
 
 - Python source compiles
 - tests pass
+- `pylint` passes
+- `mypy` passes
 - no tracked Python cache artifacts
 - Docker image builds
 - Docker container entrypoint runs
@@ -455,9 +478,18 @@ Current GitHub Actions pipeline checks:
 
 ## Next expected capabilities
 
+## Runbook
+
+Operator notes:
+
+- `RUNBOOK.md`
+
+## Next expected capabilities
+
 Planned future steps:
 
-- none in current issue plan; issue list complete through 18
+- full runtime pipeline wiring inside container entrypoint
+- deeper merge/coreference behavior from broader plan
 
 ## Main project document
 

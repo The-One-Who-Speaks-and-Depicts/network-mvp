@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
 import math
+from typing import Any, cast
 
 try:
-    import networkx as nx
+    import networkx as NETWORKX
 except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in local envs
-    nx = None
+    NETWORKX = None
 
 from app.pipeline.entity_merge import CanonicalEntity
 from app.pipeline.semantic_relations import SemanticEdge
@@ -28,7 +28,7 @@ class SimpleEdgeView:
     def __getitem__(self, key: tuple[str, str]) -> dict[str, object]:
         if key in self._data:
             return self._data[key]
-        normalized_key = tuple(sorted(key))
+        normalized_key = cast(tuple[str, str], tuple(sorted(key)))
         return self._data[normalized_key]
 
     def __len__(self) -> int:
@@ -44,7 +44,7 @@ class SimpleGraph:
         self.nodes[node_name] = dict(attributes)
 
     def add_edge(self, source: str, target: str, **attributes: object) -> None:
-        key = tuple(sorted((source, target)))
+        key = cast(tuple[str, str], tuple(sorted((source, target))))
         self.edges.add(key[0], key[1], dict(attributes))
 
     def number_of_nodes(self) -> int:
@@ -56,7 +56,7 @@ class SimpleGraph:
 
 @dataclass(frozen=True)
 class GraphBuildResult:
-    graph: object
+    graph: Any
     centrality: dict[str, float]
     warnings: tuple[str, ...]
 
@@ -67,7 +67,7 @@ class GraphBuilder:
         entities: list[CanonicalEntity],
         edges: list[SemanticEdge],
     ) -> GraphBuildResult:
-        graph = nx.Graph() if nx is not None else SimpleGraph()
+        graph = NETWORKX.Graph() if NETWORKX is not None else SimpleGraph()
 
         for entity in entities:
             graph.add_node(
@@ -101,7 +101,7 @@ class GraphBuilder:
             warnings=tuple(warnings),
         )
 
-    def _compute_centrality(self, graph: object, warnings: list[str]) -> dict[str, float]:
+    def _compute_centrality(self, graph: Any, warnings: list[str]) -> dict[str, float]:
         if graph.number_of_nodes() == 0:
             warnings.append("Graph has no nodes; centrality skipped.")
             return {}
@@ -110,10 +110,13 @@ class GraphBuilder:
             warnings.append("Graph has no edges; centrality defaults to 0.0 for all nodes.")
             return {node: 0.0 for node in graph.nodes}
 
-        if nx is not None:
+        if NETWORKX is not None:
             try:
-                return nx.eigenvector_centrality(graph, weight="weight", max_iter=1000)
-            except nx.NetworkXException as error:
+                return cast(
+                    dict[str, float],
+                    NETWORKX.eigenvector_centrality(graph, weight="weight", max_iter=1000),
+                )
+            except NETWORKX.NetworkXException as error:
                 warnings.append(f"Eigenvector centrality failed: {error}")
                 return {node: 0.0 for node in graph.nodes}
 
@@ -128,7 +131,7 @@ class GraphBuilder:
         for _ in range(100):
             next_values = [0.0 for _ in nodes]
             for (source, target), attributes in graph.edges._data.items():
-                weight = float(attributes.get("weight", 1.0))
+                weight = float(cast(float | int | str, attributes.get("weight", 1.0)))
                 source_index = index[source]
                 target_index = index[target]
                 next_values[source_index] += weight * values[target_index]

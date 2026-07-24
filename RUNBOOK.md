@@ -2,14 +2,14 @@
 
 ## Goal
 
-Run local UI, execute current scaffolded pipeline flow, inspect artifacts, handle manual cleanup.
+Run local UI, validate local environment, inspect scaffolded pipeline outputs, and handle manual cleanup.
 
 ## Prerequisites
 
 - Python 3.12
 - Docker
 - Python dependencies from `requirements.txt`
-- optional: LM Studio in server mode for stages that call local LLM
+- optional: LM Studio in server mode for local LLM-backed stages
 
 Install dependencies:
 
@@ -17,28 +17,26 @@ Install dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
-## 1. Start LM Studio
-
-Needed once full pipeline wiring consumes live model calls.
+## LM Studio setup
 
 Recommended local setup:
 
-- Open LM Studio
-- Load small local model that fits machine constraints
-- Start server mode
-- Confirm OpenAI-compatible endpoint available at `http://127.0.0.1:1234/v1`
-- Copy exact model name shown by LM Studio
+- open LM Studio
+- load small model that fits local hardware limits
+- enable server mode
+- confirm endpoint `http://127.0.0.1:1234/v1`
+- copy exact model name into UI form
 
 If using different host or port, update UI form or environment variables.
 
-## 2. Prepare corpus
+## Input corpus
 
-Input expectations:
+Expected corpus:
 
-- plain `.txt` files
+- `.txt` files
+- UTF-8
 - one text per file
-- UTF-8 encoding
-- filenames kept as provenance in output artifacts
+- filenames retained as provenance in outputs
 
 Tiny sample corpus layout:
 
@@ -48,7 +46,7 @@ sample-data/
 └── 004.004.txt
 ```
 
-## 3. Start UI
+## Start UI
 
 ```bash
 streamlit run app/ui/app.py
@@ -56,14 +54,30 @@ streamlit run app/ui/app.py
 
 Fill:
 
-- Corpus directory
-- Output directory
+- corpus directory
+- output directory
 - LM Studio base URL
-- Model name
+- model name
 
 Press `Start run`.
 
-## 4. Watch progress
+## Pipeline notes
+
+Current service-layer pipeline order:
+
+1. ingestion
+2. normalization
+3. lemmatization
+4. entity extraction from lemmatized text, with source text retained for evidence snippets
+5. entity merge
+6. co-occurrence edge build
+7. semantic relation annotation from lemmatized context, with source text retained as supporting evidence
+8. graph build
+9. graph export
+
+Current container entrypoint remains scaffold-oriented. Full orchestration still partial.
+
+## Watch progress
 
 UI currently shows:
 
@@ -78,9 +92,9 @@ Current backend emits scaffold progress contract lines like:
 PROGRESS	stage=startup	completed=0	total=0	status=running	message=Container started
 ```
 
-## 5. Inspect outputs
+## Outputs
 
-Current codebase exports or prepares:
+Inspect:
 
 - `output/logs/original/`
 - `output/normalized/`
@@ -88,31 +102,31 @@ Current codebase exports or prepares:
 - `output/graph.json`
 - `output/graph.html`
 
-Key artifact checks:
+Check:
 
-- `graph.json` has `nodes` and `edges`
+- `graph.json` contains `nodes` and `edges`
 - node records include `centrality_eigenvector`
-- node and edge records include `source_files`
-- `graph.html` opens as static file in browser
+- nodes and edges keep `source_files`
+- `graph.html` opens as static file
 
-## 6. Manual post-processing
+## Manual post-processing
 
-Human review still required.
+Human review required.
 
-Review `graph.json` edges for:
+Review exported graph for:
 
 - `semantic_relation = "not stated"`
-- weak semantic confidence
+- low-confidence semantic labels
 - over-merged entities
-- unresolved gender inference
-- suspicious source-file provenance
+- conservative `gender_inference`
+- suspicious provenance on `source_files`
 
-Manual cleanup expectations:
+Manual cleanup steps:
 
-1. remove or relabel `not stated` edges as research needs dictate
+1. remove or relabel `not stated` edges
 2. inspect low-confidence semantic labels
-3. correct schema if repeated relation type falls outside allowed label set
-4. preserve source-file evidence during manual edits
+3. keep source-file evidence intact
+4. revise downstream schema if repeated valid relation falls outside allowed labels
 
 ## Known limits
 
@@ -161,7 +175,16 @@ Check:
 - UI stderr block
 - container stdout progress lines
 
-## Validation commands
+## Lint and type checks
+
+Run:
+
+```bash
+python3 -m pylint app tests scripts
+python3 -m mypy app tests scripts
+```
+
+## Validation
 
 ```bash
 python3 -m compileall app tests scripts

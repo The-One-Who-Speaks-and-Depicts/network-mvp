@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.pipeline.normalization import NormalizedFile
-from app.services.llm_client import LlmClient, LlmClientError
+from app.services.llm_client import LlmClientError, PromptingClient
 
 
 @dataclass(frozen=True)
@@ -20,7 +20,7 @@ class LemmatizedFile:
 class LemmatizationService:
     def __init__(
         self,
-        llm_client: LlmClient,
+        llm_client: PromptingClient,
         prompt_template_path: Path | None = None,
     ) -> None:
         self.llm_client = llm_client

@@ -23,6 +23,7 @@ Goal: keep implementation sliced into small, context-safe units that can be comp
 17. `16_progress_reporting.md`
 18. `17_tests_smoke_and_schema.md`
 19. `18_docs_and_runbook.md`
+20. `19_lemma_pipeline_and_quality_gates.md`
 
 ## Rules for each issue
 

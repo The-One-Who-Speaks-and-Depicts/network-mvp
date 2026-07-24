@@ -6,6 +6,8 @@ CI should verify:
 
 - Python sources compile
 - unit/smoke tests pass
+- `pylint` passes
+- `mypy` passes
 - no Python cache artifacts are tracked
 - every PR into `dev` changes `VERSION`
 - every PR into `dev` updates `plan/issue_status.md`
@@ -21,4 +23,5 @@ Before merging into `dev`, verify:
 - version bump is intentional and unique
 - PR exists with clear title and description
 - changed logic has tests with realistic mocks or real domain fixtures where practical
+- local `pylint` and `mypy` pass for touched scope where environment supports them
 - CI is green
