@@ -6,6 +6,7 @@ import unittest
 
 from app.config import AppConfig, ConfigError
 from app.pipeline.file_ingestion import FileIngestionService, SourceFile
+from app.pipeline.normalization import NormalizationService, NormalizedFile
 from app.services.docker_runner import DockerRunResult, DockerRunner
 from app.services.llm_client import LlmClient, LlmClientError, LlmResponse
 from app.ui.shell import UiDefaults, UiRunResponse, default_form_values, handle_run_request
@@ -54,6 +55,21 @@ class FakeResponse:
         self.choices = [FakeChoice(content)]
 
 
+class FakeLlmClient:
+    def __init__(self, responses: list[str] | None = None, error: Exception | None = None) -> None:
+        self.responses = responses or []
+        self.error = error
+        self.prompts: list[str] = []
+
+    def prompt(self, prompt_text: str, system_prompt: str | None = None) -> LlmResponse:
+        self.prompts.append(prompt_text)
+        if self.error is not None:
+            raise self.error
+        if not self.responses:
+            return LlmResponse(text="", raw_response=None)
+        return LlmResponse(text=self.responses.pop(0), raw_response=None)
+
+
 class ScaffoldTests(unittest.TestCase):
     def test_required_directories_exist(self) -> None:
         for path in [
@@ -79,8 +95,10 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/ui/app.py"),
             Path("app/ui/shell.py"),
             Path("app/pipeline/file_ingestion.py"),
+            Path("app/pipeline/normalization.py"),
             Path("app/services/docker_runner.py"),
             Path("app/services/llm_client.py"),
+            Path("prompts/normalization_prompt.txt"),
             Path("requirements.txt"),
             Path("Dockerfile"),
             Path(".dockerignore"),
@@ -223,6 +241,71 @@ class ScaffoldTests(unittest.TestCase):
 
             self.assertEqual(len(source_files), 1)
             self.assertTrue((output_dir / "logs" / "original" / "text_0001_letter.txt").is_file())
+
+    def test_normalization_removes_line_breaks_and_writes_output(self) -> None:
+        client = FakeLlmClient(responses=["first line\nsecond line"])
+        service = NormalizationService(client)
+        source_files = [
+            SourceFile(
+                file_id="text_0001",
+                filename="letter.txt",
+                source_path=Path("/tmp/letter.txt"),
+                text="raw text",
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            normalized_files = service.normalize_files(source_files, output_dir)
+            output_path = output_dir / "normalized" / "text_0001_letter.txt"
+
+            self.assertEqual(len(normalized_files), 1)
+            self.assertIsInstance(normalized_files[0], NormalizedFile)
+            self.assertEqual(normalized_files[0].normalized_text, "first line second line")
+            self.assertTrue(output_path.is_file())
+            self.assertEqual(output_path.read_text(encoding="utf-8"), "first line second line")
+
+    def test_normalization_writes_log_for_empty_output(self) -> None:
+        client = FakeLlmClient(responses=["   "])
+        service = NormalizationService(client)
+        source_files = [
+            SourceFile(
+                file_id="text_0001",
+                filename="letter.txt",
+                source_path=Path("/tmp/letter.txt"),
+                text="raw text",
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            normalized_files = service.normalize_files(source_files, output_dir)
+            log_path = output_dir / "logs" / "normalization" / "text_0001_letter.txt.log"
+
+            self.assertEqual(normalized_files, [])
+            self.assertTrue(log_path.is_file())
+            self.assertIn("empty normalization output", log_path.read_text(encoding="utf-8"))
+
+    def test_normalization_writes_log_for_llm_error(self) -> None:
+        client = FakeLlmClient(error=LlmClientError("request failed"))
+        service = NormalizationService(client)
+        source_files = [
+            SourceFile(
+                file_id="text_0001",
+                filename="letter.txt",
+                source_path=Path("/tmp/letter.txt"),
+                text="raw text",
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            normalized_files = service.normalize_files(source_files, output_dir)
+            log_path = output_dir / "logs" / "normalization" / "text_0001_letter.txt.log"
+
+            self.assertEqual(normalized_files, [])
+            self.assertTrue(log_path.is_file())
+            self.assertIn("request failed", log_path.read_text(encoding="utf-8"))
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
