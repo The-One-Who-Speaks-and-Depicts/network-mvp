@@ -18,12 +18,13 @@ This repository currently contains:
 - lemmatization stage
 - candidate entity extraction
 - entity merge logic
+- co-occurrence edge generation
 
-It does **not yet** contain full text-processing pipeline. Current preprocessing and extraction stages exist as service layers, but container entrypoint still runs scaffold output only.
+It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, and edge-generation stages exist as service layers, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.11.0-dev`
+Current development version: `0.12.0-dev`
 
 ## Requirements
 
@@ -186,6 +187,18 @@ Current service supports:
 - basic title stripping for canonicalization
 - basic `gender_inference` population
 
+## Co-occurrence edge generation
+
+Current code includes co-occurrence service in `app/pipeline/cooccurrence.py`.
+
+Current service supports:
+
+- file-level co-occurrence grouping
+- unique pair generation
+- weighted edge aggregation
+- source-file tracking per edge
+- self-loop avoidance through unique pair combinations
+
 ## Local test run
 
 Run compile check:
@@ -271,7 +284,7 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- co-occurrence and semantic relation stages
+- semantic relation stage
 - graph generation and export
 
 ## Main project document
