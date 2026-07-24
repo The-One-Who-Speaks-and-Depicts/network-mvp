@@ -1,9 +1,11 @@
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 from app.config import AppConfig, ConfigError
+from app.pipeline.file_ingestion import FileIngestionService, SourceFile
 from app.services.docker_runner import DockerRunResult, DockerRunner
 from app.services.llm_client import LlmClient, LlmClientError, LlmResponse
 from app.ui.shell import UiDefaults, UiRunResponse, default_form_values, handle_run_request
@@ -76,6 +78,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/config.py"),
             Path("app/ui/app.py"),
             Path("app/ui/shell.py"),
+            Path("app/pipeline/file_ingestion.py"),
             Path("app/services/docker_runner.py"),
             Path("app/services/llm_client.py"),
             Path("requirements.txt"),
@@ -152,6 +155,74 @@ class ScaffoldTests(unittest.TestCase):
                     "enable_debug_logging": "maybe",
                 }
             )
+
+    def test_file_ingestion_discovers_only_txt_files(self) -> None:
+        service = FileIngestionService()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "a.txt").write_text("A", encoding="utf-8")
+            (root / "b.md").write_text("B", encoding="utf-8")
+            nested = root / "nested"
+            nested.mkdir()
+            (nested / "c.txt").write_text("C", encoding="utf-8")
+
+            paths = service.discover_text_files(root)
+
+        self.assertEqual([path.name for path in paths], ["a.txt", "c.txt"])
+
+    def test_file_ingestion_loads_source_files_with_stable_ids(self) -> None:
+        service = FileIngestionService()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "b.txt").write_text("Beta", encoding="utf-8")
+            (root / "a.txt").write_text("Alpha", encoding="utf-8")
+
+            source_files = service.load_source_files(root)
+
+        self.assertEqual([file.file_id for file in source_files], ["text_0001", "text_0002"])
+        self.assertEqual([file.filename for file in source_files], ["a.txt", "b.txt"])
+        self.assertEqual([file.text for file in source_files], ["Alpha", "Beta"])
+        self.assertTrue(all(isinstance(file, SourceFile) for file in source_files))
+
+    def test_file_ingestion_exports_original_logs(self) -> None:
+        service = FileIngestionService()
+        source_files = [
+            SourceFile(
+                file_id="text_0001",
+                filename="letter.txt",
+                source_path=Path("/tmp/letter.txt"),
+                text="Original text",
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            log_dir = service.export_original_logs(source_files, output_dir)
+            log_path = log_dir / "text_0001_letter.txt"
+
+            self.assertEqual(log_dir, output_dir / "logs" / "original")
+            self.assertTrue(log_path.is_file())
+            self.assertEqual(log_path.read_text(encoding="utf-8"), "Original text")
+
+    def test_file_ingestion_ingest_writes_logs_outside_container_mount(self) -> None:
+        service = FileIngestionService()
+        with tempfile.TemporaryDirectory() as input_temp_dir, tempfile.TemporaryDirectory() as output_temp_dir:
+            input_dir = Path(input_temp_dir)
+            output_dir = Path(output_temp_dir)
+            (input_dir / "letter.txt").write_text("Text body", encoding="utf-8")
+            config = AppConfig.from_mapping(
+                {
+                    "input_dir": input_dir,
+                    "output_dir": output_dir,
+                    "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                    "model_name": "local-model",
+                }
+            )
+
+            source_files = service.ingest(config)
+
+            self.assertEqual(len(source_files), 1)
+            self.assertTrue((output_dir / "logs" / "original" / "text_0001_letter.txt").is_file())
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
