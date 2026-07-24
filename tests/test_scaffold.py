@@ -599,6 +599,66 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(merged[0].gender_inference, "female")
         self.assertEqual(merged[1].gender_inference, "not-inferred")
 
+    def test_entity_merge_with_birchbark_style_candidates(self) -> None:
+        candidates = [
+            CandidateEntity(
+                file_id="text_0001",
+                filename="003.003.txt",
+                name="Грикша",
+                evidence="грикши",
+            ),
+            CandidateEntity(
+                file_id="text_0001",
+                filename="003.003.txt",
+                name="Ѥсифъ",
+                evidence="ѥсифу",
+            ),
+            CandidateEntity(
+                file_id="text_0001",
+                filename="003.003.txt",
+                name="Федосьꙗ",
+                evidence="федосьӏ",
+            ),
+            CandidateEntity(
+                file_id="text_0002",
+                filename="004.004.txt",
+                name="Петръ",
+                evidence="петра",
+            ),
+            CandidateEntity(
+                file_id="text_0002",
+                filename="004.004.txt",
+                name="Юрга",
+                evidence="юрги",
+            ),
+            CandidateEntity(
+                file_id="text_0003",
+                filename="005.005.txt",
+                name="княгиня Ольга",
+                evidence="княгиня ольга",
+            ),
+            CandidateEntity(
+                file_id="text_0004",
+                filename="006.006.txt",
+                name="Ольга",
+                evidence="ольга",
+            ),
+        ]
+        merged = EntityMergeService().merge_candidates(candidates)
+        merged_by_name = {entity.canonical_name: entity for entity in merged}
+
+        self.assertIn("грикша", merged_by_name)
+        self.assertIn("ѥсифъ", merged_by_name)
+        self.assertIn("федосьꙗ", merged_by_name)
+        self.assertIn("петръ", merged_by_name)
+        self.assertIn("юрга", merged_by_name)
+        self.assertIn("ольга", merged_by_name)
+        self.assertEqual(merged_by_name["грикша"].evidence, ("грикши",))
+        self.assertEqual(merged_by_name["ѥсифъ"].source_files, ("003.003.txt",))
+        self.assertEqual(merged_by_name["федосьꙗ"].gender_inference, "female")
+        self.assertEqual(merged_by_name["ольга"].aliases, ("Ольга", "княгиня Ольга"))
+        self.assertEqual(merged_by_name["ольга"].source_files, ("005.005.txt", "006.006.txt"))
+
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
             {
