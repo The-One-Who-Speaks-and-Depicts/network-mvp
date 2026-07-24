@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - feat/**
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  scaffold-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify Python source compiles
+        run: python -m compileall app tests
+
+      - name: Run scaffold tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
