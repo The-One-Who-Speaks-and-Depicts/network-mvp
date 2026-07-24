@@ -19,4 +19,5 @@ Before merging into `dev`, verify:
 - implementation matches acceptance criteria for targeted issue
 - plan status reflects real completion, not partial progress
 - version bump is intentional and unique
+- PR exists with clear title and description
 - CI is green

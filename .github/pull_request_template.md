@@ -13,3 +13,4 @@
 - [ ] At least one issue marked completed in `plan/issue_status.md`
 - [ ] Local tests run for affected scope
 - [ ] Scope remains bounded and suitable for merge into `dev`
+- [ ] PR title and description are complete and accurate
