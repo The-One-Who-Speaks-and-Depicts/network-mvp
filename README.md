@@ -22,12 +22,13 @@ This repository currently contains:
 - semantic relation annotation
 - graph construction and centrality
 - graph JSON and HTML export
+- progress reporting
 
-It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, semantic-annotation, graph-construction, and export stages exist as service layers, but container entrypoint still runs scaffold output only.
+It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, semantic-annotation, graph-construction, export, and progress-reporting stages exist as service layers, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.15.0-dev`
+Current development version: `0.16.0-dev`
 
 ## Requirements
 
@@ -132,6 +133,9 @@ Current UI provides:
 - model name field
 - Start run button
 - status area with container stdout/stderr
+- current stage display
+- file-count progress display where backend reports counts
+- clear completion/failure state
 
 ## File ingestion
 
@@ -245,6 +249,24 @@ Current service supports:
 - pyvis-backed HTML when dependency is available
 - fallback static HTML artifact when pyvis is unavailable
 
+## Progress reporting
+
+Current code includes progress reporting model in `app/progress/reporting.py`.
+
+Current service supports:
+
+- parsing backend progress lines from container stdout
+- current stage extraction
+- file-count progress extraction where reported
+- completion/failure state derivation
+- UI display of stage, counts, and final state
+
+Progress line format:
+
+```text
+PROGRESS\tstage=<stage>\tcompleted=<n>\ttotal=<n>\tstatus=<state>\tmessage=<text>
+```
+
 ## Local test run
 
 Run compile check:
@@ -330,8 +352,8 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- progress reporting
 - smoke and schema validation
+- documentation and runbook
 
 ## Main project document
 

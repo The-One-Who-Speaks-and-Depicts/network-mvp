@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.config import AppConfig, ConfigError
+from app.progress.reporting import ProgressReporter, ProgressState
 from app.services.docker_runner import DockerRunner, DockerRunResult
 
 
@@ -21,6 +22,7 @@ class UiRunResponse:
     config: AppConfig | None
     status_message: str
     result: DockerRunResult | None = None
+    progress_state: ProgressState | None = None
 
 
 def default_form_values() -> UiDefaults:
@@ -39,11 +41,18 @@ def handle_run_request(
     active_runner = runner or DockerRunner()
     result = active_runner.run(config)
 
+    progress_state = ProgressReporter().from_result(
+        stdout=result.stdout,
+        stderr=result.stderr,
+        succeeded=result.succeeded,
+    )
+
     if result.succeeded:
         return UiRunResponse(
             config=config,
             status_message="Container run completed successfully.",
             result=result,
+            progress_state=progress_state,
         )
 
     error_message = result.stderr.strip() or result.stdout.strip() or "Unknown Docker error"
@@ -51,4 +60,5 @@ def handle_run_request(
         config=config,
         status_message=f"Container run failed: {error_message}",
         result=result,
+        progress_state=progress_state,
     )
