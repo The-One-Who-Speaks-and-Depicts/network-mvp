@@ -23,12 +23,13 @@ This repository currently contains:
 - graph construction and centrality
 - graph JSON and HTML export
 - progress reporting
+- smoke and schema validation
 
-It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, semantic-annotation, graph-construction, export, and progress-reporting stages exist as service layers, but container entrypoint still runs scaffold output only.
+It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, semantic-annotation, graph-construction, export, progress-reporting, and smoke/schema validation stages exist as service layers, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.16.0-dev`
+Current development version: `0.17.0-dev`
 
 ## Requirements
 
@@ -267,6 +268,27 @@ Progress line format:
 PROGRESS\tstage=<stage>\tcompleted=<n>\ttotal=<n>\tstatus=<state>\tmessage=<text>
 ```
 
+## Smoke and schema validation
+
+Current test suite now includes:
+
+- config default/validation coverage
+- `graph.json` shape validation
+- tiny-corpus happy-path smoke coverage
+- artifact generation checks for JSON and HTML outputs
+
+Smoke flow covers:
+
+- ingestion
+- normalization
+- lemmatization
+- entity extraction
+- entity merge
+- co-occurrence generation
+- semantic annotation
+- graph build
+- graph export
+
 ## Local test run
 
 Run compile check:
@@ -352,7 +374,6 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- smoke and schema validation
 - documentation and runbook
 
 ## Main project document

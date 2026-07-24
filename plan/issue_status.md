@@ -24,5 +24,5 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 14 Graph builder and centrality
 - [x] 15 JSON and HTML export
 - [x] 16 Progress reporting
-- [ ] 17 Smoke tests and schema tests
+- [x] 17 Smoke tests and schema tests
 - [ ] 18 Documentation and runbook
