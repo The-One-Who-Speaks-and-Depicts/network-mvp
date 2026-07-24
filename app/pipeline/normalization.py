@@ -64,8 +64,7 @@ class NormalizationService:
         return normalized_files
 
     def _sanitize_output(self, text: str) -> str:
-        sanitized = " ".join(text.splitlines())
-        return sanitized.strip()
+        return " ".join(text.split())
 
     def _write_malformed_log(
         self,

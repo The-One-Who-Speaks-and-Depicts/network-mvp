@@ -307,6 +307,37 @@ class ScaffoldTests(unittest.TestCase):
             self.assertTrue(log_path.is_file())
             self.assertIn("request failed", log_path.read_text(encoding="utf-8"))
 
+    def test_normalization_with_zenodo_birchbark_fixtures(self) -> None:
+        fixture_dir = Path("tests/fixtures/zenodo_birchbark")
+        source_files = FileIngestionService().load_source_files(fixture_dir)
+        client = FakeLlmClient(
+            responses=[
+                "поклонъ ѿ грикши къ ѥсифу\n приславъ ꙩнаньꙗ молви♮ ꙗзъ ѥму ѿвѣчалъ",
+                "ѿ микит·ѣ · ко цертѹ ·\n цто ѥсм·ь · ♮руцилъ · ѹ петра",
+                "♮но ѿ давꙑ♮ ♮есиѳа ·\n къ матѳѣю · постои · за нашего сироту ·",
+            ]
+        )
+        service = NormalizationService(client)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            normalized_files = service.normalize_files(source_files, output_dir)
+
+            self.assertEqual([file.file_id for file in normalized_files], ["text_0001", "text_0002", "text_0003"])
+            self.assertEqual([file.filename for file in normalized_files], ["003.003.txt", "004.004.txt", "005.005.txt"])
+            self.assertEqual(
+                [file.normalized_text for file in normalized_files],
+                [
+                    "поклонъ ѿ грикши къ ѥсифу приславъ ꙩнаньꙗ молви♮ ꙗзъ ѥму ѿвѣчалъ",
+                    "ѿ микит·ѣ · ко цертѹ · цто ѥсм·ь · ♮руцилъ · ѹ петра",
+                    "♮но ѿ давꙑ♮ ♮есиѳа · къ матѳѣю · постои · за нашего сироту ·",
+                ],
+            )
+            self.assertTrue((output_dir / "normalized" / "text_0001_003.003.txt").is_file())
+            self.assertTrue((output_dir / "normalized" / "text_0002_004.004.txt").is_file())
+            self.assertTrue((output_dir / "normalized" / "text_0003_005.005.txt").is_file())
+            self.assertIn("поклонъ ѿ грикши", client.prompts[0])
+
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
             {
