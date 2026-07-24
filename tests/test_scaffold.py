@@ -5,6 +5,7 @@ import unittest
 
 from app.config import AppConfig, ConfigError
 from app.services.docker_runner import DockerRunResult, DockerRunner
+from app.services.llm_client import LlmClient, LlmClientError, LlmResponse
 from app.ui.shell import UiDefaults, UiRunResponse, default_form_values, handle_run_request
 
 
@@ -16,6 +17,39 @@ class FakeRunner:
     def run(self, config: AppConfig) -> DockerRunResult:
         self.received_config = config
         return self.result
+
+
+class FakeCompletions:
+    def __init__(self, response: object | None = None, error: Exception | None = None) -> None:
+        self.response = response
+        self.error = error
+        self.calls: list[dict[str, object]] = []
+
+    def create(self, **kwargs: object) -> object:
+        self.calls.append(kwargs)
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+
+class FakeClient:
+    def __init__(self, completions: FakeCompletions) -> None:
+        self.chat = type("Chat", (), {"completions": completions})()
+
+
+class FakeMessage:
+    def __init__(self, content: object) -> None:
+        self.content = content
+
+
+class FakeChoice:
+    def __init__(self, content: object) -> None:
+        self.message = FakeMessage(content)
+
+
+class FakeResponse:
+    def __init__(self, content: object) -> None:
+        self.choices = [FakeChoice(content)]
 
 
 class ScaffoldTests(unittest.TestCase):
@@ -43,6 +77,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/ui/app.py"),
             Path("app/ui/shell.py"),
             Path("app/services/docker_runner.py"),
+            Path("app/services/llm_client.py"),
             Path("requirements.txt"),
             Path("Dockerfile"),
             Path(".dockerignore"),
@@ -140,6 +175,82 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION=true", command)
         self.assertIn("NETWORK_MVP_ENABLE_DEBUG_LOGGING=false", command)
         self.assertIn("network-mvp:test", command)
+
+    def test_llm_client_uses_config_values(self) -> None:
+        config = AppConfig.from_mapping(
+            {
+                "input_dir": "./data",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                "model_name": "local-model",
+            }
+        )
+        completions = FakeCompletions(response=FakeResponse("hello"))
+        factory_calls: list[dict[str, object]] = []
+
+        def client_factory(*, base_url: str, timeout: float) -> FakeClient:
+            factory_calls.append({"base_url": base_url, "timeout": timeout})
+            return FakeClient(completions)
+
+        client = LlmClient.from_config(config, timeout=12.5, client_factory=client_factory)
+        response = client.prompt("ping")
+
+        self.assertIsInstance(response, LlmResponse)
+        self.assertEqual(response.text, "hello")
+        self.assertEqual(factory_calls, [{"base_url": "http://127.0.0.1:1234/v1", "timeout": 12.5}])
+        self.assertEqual(completions.calls[0]["model"], "local-model")
+
+    def test_llm_client_builds_messages_and_extracts_text(self) -> None:
+        completions = FakeCompletions(response=FakeResponse(" answer text "))
+        client = LlmClient(
+            base_url="http://127.0.0.1:1234/v1",
+            model_name="local-model",
+            client_factory=lambda **_: FakeClient(completions),
+        )
+
+        response = client.prompt("user prompt", system_prompt="system prompt")
+
+        self.assertEqual(response.text, "answer text")
+        self.assertEqual(
+            completions.calls[0]["messages"],
+            [
+                {"role": "system", "content": "system prompt"},
+                {"role": "user", "content": "user prompt"},
+            ],
+        )
+
+    def test_llm_client_rejects_empty_prompt(self) -> None:
+        client = LlmClient(
+            base_url="http://127.0.0.1:1234/v1",
+            model_name="local-model",
+            client_factory=lambda **_: FakeClient(FakeCompletions(response=FakeResponse("ok"))),
+        )
+
+        with self.assertRaisesRegex(LlmClientError, "Prompt text must not be empty"):
+            client.prompt("   ")
+
+    def test_llm_client_surfaces_request_error(self) -> None:
+        client = LlmClient(
+            base_url="http://127.0.0.1:1234/v1",
+            model_name="local-model",
+            client_factory=lambda **_: FakeClient(FakeCompletions(error=RuntimeError("connection refused"))),
+        )
+
+        with self.assertRaisesRegex(LlmClientError, "LLM request failed: connection refused"):
+            client.prompt("ping")
+
+    def test_llm_client_surfaces_missing_content_error(self) -> None:
+        client = LlmClient(
+            base_url="http://127.0.0.1:1234/v1",
+            model_name="local-model",
+            client_factory=lambda **_: FakeClient(FakeCompletions(response=FakeResponse(None))),
+        )
+
+        with self.assertRaisesRegex(
+            LlmClientError,
+            "LLM response did not contain message content",
+        ):
+            client.prompt("ping")
 
     def test_ui_defaults_include_required_input_fields(self) -> None:
         defaults = default_form_values()

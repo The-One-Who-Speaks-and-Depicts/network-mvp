@@ -1,6 +1,6 @@
 # Female Character Network Visualizer
 
-Current status: scaffold / early setup with local UI shell and Docker runner.
+Current status: scaffold / early setup with local UI shell, Docker runner, and LLM client wrapper.
 
 This repository currently contains:
 
@@ -12,6 +12,7 @@ This repository currently contains:
 - CI checks
 - local Streamlit UI shell
 - Docker runner wiring
+- LLM client wrapper
 
 It does **not yet** contain actual text-processing pipeline. Current UI can validate inputs and launch Docker container, but container still runs scaffold entrypoint only.
 
@@ -67,6 +68,23 @@ export NETWORK_MVP_ENABLE_DEBUG_LOGGING=false
 ```
 
 Note: current scaffold entrypoint does not consume these values yet. Config model and loaders are ready for next integration steps.
+
+## LLM client
+
+Current code includes OpenAI-compatible wrapper in `app/services/llm_client.py`.
+
+Current wrapper supports:
+
+- base URL from config
+- model name from config
+- timeout setting
+- prompt request helper
+- response text extraction
+- actionable error messages for request/response failures
+
+Intended target:
+
+- LM Studio in OpenAI-compatible server mode
 
 ## Local Python run
 
@@ -185,7 +203,6 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- LM Studio client
 - preprocessing pipeline
 - graph generation and export
 

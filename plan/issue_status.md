@@ -12,7 +12,7 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 03 Configuration model
 - [x] 04 UI shell
 - [x] 05 Docker runner
-- [ ] 06 LLM client wrapper
+- [x] 06 LLM client wrapper
 - [ ] 07 File ingestion and original-text logging
 - [ ] 08 Normalization stage
 - [ ] 09 Lemmatization stage
