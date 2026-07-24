@@ -1,6 +1,6 @@
 # Female Character Network Visualizer
 
-Current status: scaffold / early setup.
+Current status: scaffold / early setup with local UI shell.
 
 This repository currently contains:
 
@@ -10,8 +10,9 @@ This repository currently contains:
 - Python dependency manifest
 - runnable Docker image
 - CI checks
+- local Streamlit UI shell
 
-It does **not yet** contain the actual text-processing pipeline or web UI. The current app entrypoint only prints a scaffold message.
+It does **not yet** contain actual text-processing pipeline. Current UI is shell only: it collects inputs and shows placeholder status message.
 
 ## Version
 
@@ -78,7 +79,25 @@ Expected output:
 
 ```text
 Female Character Network Visualizer scaffold
+Start local UI with: streamlit run app/ui/app.py
 ```
+
+## Local UI run
+
+From repository root:
+
+```bash
+streamlit run app/ui/app.py
+```
+
+Current UI provides:
+
+- corpus directory field
+- output directory field
+- LM Studio base URL field
+- model name field
+- Start run button
+- placeholder status area
 
 ## Local test run
 
@@ -147,7 +166,6 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- local web UI
 - Docker runner integration
 - LM Studio client
 - preprocessing pipeline

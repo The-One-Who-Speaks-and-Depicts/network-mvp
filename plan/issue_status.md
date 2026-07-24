@@ -10,7 +10,7 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 01 Repository scaffold
 - [x] 02 Dependencies and Dockerfile
 - [x] 03 Configuration model
-- [ ] 04 UI shell
+- [x] 04 UI shell
 - [ ] 05 Docker runner
 - [ ] 06 LLM client wrapper
 - [ ] 07 File ingestion and original-text logging

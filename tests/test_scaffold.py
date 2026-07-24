@@ -4,6 +4,7 @@ import sys
 import unittest
 
 from app.config import AppConfig, ConfigError
+from app.ui.shell import UiDefaults, default_form_values, handle_run_request
 
 
 class ScaffoldTests(unittest.TestCase):
@@ -28,6 +29,8 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/__init__.py"),
             Path("app/main.py"),
             Path("app/config.py"),
+            Path("app/ui/app.py"),
+            Path("app/ui/shell.py"),
             Path("requirements.txt"),
             Path("Dockerfile"),
             Path(".dockerignore"),
@@ -103,6 +106,41 @@ class ScaffoldTests(unittest.TestCase):
                 }
             )
 
+    def test_ui_defaults_include_required_input_fields(self) -> None:
+        defaults = default_form_values()
+
+        self.assertIsInstance(defaults, UiDefaults)
+        self.assertEqual(defaults.input_dir, "")
+        self.assertEqual(defaults.output_dir, "./output")
+        self.assertEqual(defaults.lmstudio_base_url, "http://127.0.0.1:1234/v1")
+        self.assertEqual(defaults.model_name, "")
+
+    def test_ui_run_handler_accepts_valid_inputs(self) -> None:
+        config, status_message = handle_run_request(
+            {
+                "input_dir": "./data",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                "model_name": "local-model",
+            }
+        )
+
+        self.assertIsInstance(config, AppConfig)
+        self.assertEqual(status_message, "Run requested. Pipeline execution not implemented yet.")
+
+    def test_ui_run_handler_returns_clear_error_for_invalid_inputs(self) -> None:
+        config, status_message = handle_run_request(
+            {
+                "input_dir": "",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                "model_name": "local-model",
+            }
+        )
+
+        self.assertIsNone(config)
+        self.assertEqual(status_message, "Missing required configuration value: input_dir")
+
     def test_main_entrypoint_runs(self) -> None:
         result = subprocess.run(
             [sys.executable, "-m", "app.main"],
@@ -111,6 +149,7 @@ class ScaffoldTests(unittest.TestCase):
             check=True,
         )
         self.assertIn("Female Character Network Visualizer scaffold", result.stdout)
+        self.assertIn("streamlit run app/ui/app.py", result.stdout)
 
     def test_requirements_include_core_dependencies(self) -> None:
         requirements = Path("requirements.txt").read_text(encoding="utf-8")
