@@ -6,6 +6,7 @@ import unittest
 
 from app.config import AppConfig, ConfigError
 from app.graph.build import GraphBuildResult, GraphBuilder
+from app.graph.export import GraphExportResult, GraphExporter
 from app.pipeline.cooccurrence import CooccurrenceEdge, CooccurrenceService
 from app.pipeline.entities import CandidateEntity, EntityExtractionService
 from app.pipeline.semantic_relations import SemanticEdge, SemanticRelationService
@@ -101,6 +102,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/ui/app.py"),
             Path("app/ui/shell.py"),
             Path("app/graph/build.py"),
+            Path("app/graph/export.py"),
             Path("app/pipeline/file_ingestion.py"),
             Path("app/pipeline/normalization.py"),
             Path("app/pipeline/lemmatization.py"),
@@ -1034,6 +1036,108 @@ class ScaffoldTests(unittest.TestCase):
         self.assertTrue(all(node in result.centrality for node in ["грикша", "ѥсифъ", "федосьꙗ", "петръ"]))
         self.assertEqual(result.graph.edges[("грикша", "петръ")]["source_files"], ("004.004.txt",))
         self.assertEqual(result.graph.nodes["федосьꙗ"]["aliases"], ("Федосьꙗ",))
+
+    def test_graph_export_writes_json_and_html(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="грикша",
+                aliases=("Грикша",),
+                source_files=("003.003.txt", "004.004.txt"),
+                evidence=("грикши",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="федосьꙗ",
+                aliases=("Федосьꙗ",),
+                source_files=("003.003.txt",),
+                evidence=("федосьӏ",),
+                gender_inference="female",
+            ),
+        ]
+        edges = [
+            SemanticEdge(
+                source="грикша",
+                target="федосьꙗ",
+                weight=2,
+                source_files=("003.003.txt", "004.004.txt"),
+                semantic_relation="not stated",
+                semantic_direction=None,
+                semantic_confidence=0.4,
+            )
+        ]
+        graph_result = GraphBuilder().build(entities, edges)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = GraphExporter().export(graph_result.graph, Path(temp_dir))
+            graph_json = result.json_path.read_text(encoding="utf-8")
+            graph_html = result.html_path.read_text(encoding="utf-8")
+
+        self.assertIsInstance(result, GraphExportResult)
+        self.assertIn('"nodes"', graph_json)
+        self.assertIn('"edges"', graph_json)
+        self.assertIn('"centrality_eigenvector"', graph_json)
+        self.assertIn('"source_files"', graph_json)
+        self.assertIn('грикша', graph_json)
+        self.assertIn('федосьꙗ', graph_json)
+        self.assertIn('<html', graph_html.lower())
+
+    def test_graph_export_with_realistic_semantic_graph(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="грикша",
+                aliases=("Грикша",),
+                source_files=("003.003.txt", "004.004.txt"),
+                evidence=("грикши",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="ѥсифъ",
+                aliases=("Ѥсифъ",),
+                source_files=("003.003.txt",),
+                evidence=("ѥсифу",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="федосьꙗ",
+                aliases=("Федосьꙗ",),
+                source_files=("003.003.txt",),
+                evidence=("федосьӏ",),
+                gender_inference="female",
+            ),
+        ]
+        edges = [
+            SemanticEdge(
+                source="грикша",
+                target="ѥсифъ",
+                weight=1,
+                source_files=("003.003.txt",),
+                semantic_relation="not stated",
+                semantic_direction=None,
+                semantic_confidence=0.3,
+            ),
+            SemanticEdge(
+                source="ѥсифъ",
+                target="федосьꙗ",
+                weight=1,
+                source_files=("003.003.txt",),
+                semantic_relation="daughter of",
+                semantic_direction="target_to_source",
+                semantic_confidence=0.6,
+            ),
+        ]
+        graph_result = GraphBuilder().build(entities, edges)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            exporter_result = GraphExporter().export(graph_result.graph, Path(temp_dir))
+            payload = exporter_result.json_path.read_text(encoding="utf-8")
+            html = exporter_result.html_path.read_text(encoding="utf-8")
+
+        self.assertIn('"semantic_relation": "daughter of"', payload)
+        self.assertIn('"semantic_confidence": 0.6', payload)
+        self.assertTrue('"source": "ѥсифъ"' in payload or '"target": "ѥсифъ"' in payload)
+        self.assertTrue('"source": "федосьꙗ"' in payload or '"target": "федосьꙗ"' in payload)
+        self.assertTrue("daughter of" in html or "graph-data" in html)
+        self.assertTrue("003.003.txt" in html or "graph-data" in html)
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
