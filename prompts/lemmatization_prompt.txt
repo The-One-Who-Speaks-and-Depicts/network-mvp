@@ -1,0 +1,10 @@
+Lemmatize following Old East Slavic text.
+
+Rules:
+- return plain-text lemma sequence only
+- keep token order where possible
+- do not add commentary
+- preserve punctuation only if needed for token sequence fidelity
+
+Text:
+{text}

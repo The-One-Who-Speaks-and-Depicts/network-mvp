@@ -15,12 +15,13 @@ This repository currently contains:
 - LLM client wrapper
 - file ingestion and original-text logging
 - normalization stage
+- lemmatization stage
 
-It does **not yet** contain full text-processing pipeline. Current normalization stage exists as service layer, but container entrypoint still runs scaffold output only.
+It does **not yet** contain full text-processing pipeline. Current preprocessing stages exist as service layers, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.8.0-dev`
+Current development version: `0.9.0-dev`
 
 ## Requirements
 
@@ -144,6 +145,17 @@ Current service supports:
 - per-file writes to `output/normalized/`
 - malformed or empty-output logs in `output/logs/normalization/`
 
+## Lemmatization
+
+Current code includes lemmatization service in `app/pipeline/lemmatization.py`.
+
+Current service supports:
+
+- prompt template in `prompts/lemmatization_prompt.txt`
+- per-file lemma-sequence requests via LLM client
+- per-file writes to `output/lemmas/`
+- malformed or empty-output logs in `output/logs/lemmatization/`
+
 ## Local test run
 
 Run compile check:
@@ -229,7 +241,7 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- remaining preprocessing stages
+- entity and relation extraction
 - graph generation and export
 
 ## Main project document
