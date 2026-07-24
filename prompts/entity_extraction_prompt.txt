@@ -1,0 +1,10 @@
+Extract candidate named characters from following text.
+
+Rules:
+- prioritize direct name mentions
+- return one candidate per line
+- each line format: name<TAB>evidence
+- no commentary
+
+Text:
+{text}

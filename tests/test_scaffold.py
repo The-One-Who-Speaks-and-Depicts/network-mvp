@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 from app.config import AppConfig, ConfigError
+from app.pipeline.entities import CandidateEntity, EntityExtractionService
 from app.pipeline.file_ingestion import FileIngestionService, SourceFile
 from app.pipeline.lemmatization import LemmatizationService, LemmatizedFile
 from app.pipeline.normalization import NormalizationService, NormalizedFile
@@ -98,10 +99,12 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/pipeline/file_ingestion.py"),
             Path("app/pipeline/normalization.py"),
             Path("app/pipeline/lemmatization.py"),
+            Path("app/pipeline/entities.py"),
             Path("app/services/docker_runner.py"),
             Path("app/services/llm_client.py"),
             Path("prompts/normalization_prompt.txt"),
             Path("prompts/lemmatization_prompt.txt"),
+            Path("prompts/entity_extraction_prompt.txt"),
             Path("requirements.txt"),
             Path("Dockerfile"),
             Path(".dockerignore"),
@@ -454,6 +457,74 @@ class ScaffoldTests(unittest.TestCase):
             self.assertTrue((output_dir / "lemmas" / "text_0002_004.004.txt").is_file())
             self.assertTrue((output_dir / "lemmas" / "text_0003_005.005.txt").is_file())
             self.assertIn("поклонъ ѿ грикши", client.prompts[0])
+
+    def test_entity_extraction_parses_candidates_per_file(self) -> None:
+        source_files = [
+            SourceFile(
+                file_id="text_0001",
+                filename="003.003.txt",
+                source_path=Path("/tmp/003.003.txt"),
+                text="поклонъ ѿ грикши къ ѥсифу",
+            )
+        ]
+        client = FakeLlmClient(responses=["грикша\tгрикши\nѥсифъ\tѥсифу"])
+        service = EntityExtractionService(client)
+
+        candidates = service.extract_candidates(source_files)
+
+        self.assertEqual(len(candidates), 2)
+        self.assertTrue(all(isinstance(candidate, CandidateEntity) for candidate in candidates))
+        self.assertEqual([candidate.file_id for candidate in candidates], ["text_0001", "text_0001"])
+        self.assertEqual([candidate.filename for candidate in candidates], ["003.003.txt", "003.003.txt"])
+        self.assertEqual([candidate.name for candidate in candidates], ["грикша", "ѥсифъ"])
+        self.assertEqual([candidate.evidence for candidate in candidates], ["грикши", "ѥсифу"])
+        self.assertIn("поклонъ ѿ грикши", client.prompts[0])
+
+    def test_entity_extraction_defaults_evidence_to_name(self) -> None:
+        source_files = [
+            SourceFile(
+                file_id="text_0001",
+                filename="003.003.txt",
+                source_path=Path("/tmp/003.003.txt"),
+                text="поклонъ ѿ грикши",
+            )
+        ]
+        client = FakeLlmClient(responses=["грикша"])
+        service = EntityExtractionService(client)
+
+        candidates = service.extract_candidates(source_files)
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].name, "грикша")
+        self.assertEqual(candidates[0].evidence, "грикша")
+
+    def test_entity_extraction_skips_llm_failure(self) -> None:
+        source_files = [
+            SourceFile(
+                file_id="text_0001",
+                filename="003.003.txt",
+                source_path=Path("/tmp/003.003.txt"),
+                text="поклонъ ѿ грикши",
+            )
+        ]
+        client = FakeLlmClient(error=LlmClientError("request failed"))
+        service = EntityExtractionService(client)
+
+        candidates = service.extract_candidates(source_files)
+
+        self.assertEqual(candidates, [])
+
+    def test_entity_extraction_with_zenodo_birchbark_fixture(self) -> None:
+        fixture_dir = Path("tests/fixtures/zenodo_birchbark")
+        source_files = FileIngestionService().load_source_files(fixture_dir)[:1]
+        client = FakeLlmClient(responses=["грикша\tгрикши\nѥсифъ\tѥсифу\nфедосьꙗ\tфедосьӏ"])
+        service = EntityExtractionService(client)
+
+        candidates = service.extract_candidates(source_files)
+
+        self.assertEqual([candidate.name for candidate in candidates], ["грикша", "ѥсифъ", "федосьꙗ"])
+        self.assertEqual([candidate.evidence for candidate in candidates], ["грикши", "ѥсифу", "федосьӏ"])
+        self.assertEqual([candidate.filename for candidate in candidates], ["003.003.txt", "003.003.txt", "003.003.txt"])
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
