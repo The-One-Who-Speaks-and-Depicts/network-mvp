@@ -20,12 +20,13 @@ This repository currently contains:
 - entity merge logic
 - co-occurrence edge generation
 - semantic relation annotation
+- graph construction and centrality
 
-It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, and semantic-annotation stages exist as service layers, but container entrypoint still runs scaffold output only.
+It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, semantic-annotation, and graph-construction stages exist as service layers, but container entrypoint still runs scaffold output only.
 
 ## Version
 
-Current development version: `0.13.0-dev`
+Current development version: `0.14.0-dev`
 
 ## Requirements
 
@@ -33,6 +34,12 @@ To run locally, you need:
 
 - Python 3.12
 - Docker
+
+Install Python dependencies:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
 
 Optional later requirement:
 
@@ -212,6 +219,18 @@ Current service supports:
 - confidence parsing
 - `not stated` fallback on unknown labels or request failures
 
+## Graph construction and centrality
+
+Current code includes graph builder in `app/graph/build.py`.
+
+Current service supports:
+
+- NetworkX graph construction from canonical entities and semantic edges
+- node/edge attribute mapping
+- eigenvector centrality computation
+- warning capture for empty or problematic graphs
+- centrality write-back onto node attributes
+
 ## Local test run
 
 Run compile check:
@@ -297,7 +316,7 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- graph construction and export
+- graph export
 - progress reporting
 
 ## Main project document
