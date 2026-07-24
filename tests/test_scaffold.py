@@ -121,6 +121,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("prompts/entity_extraction_prompt.txt"),
             Path("prompts/semantic_relation_prompt.txt"),
             Path("requirements.txt"),
+            Path("RUNBOOK.md"),
             Path("Dockerfile"),
             Path(".dockerignore"),
             Path("output/.gitkeep"),
@@ -1546,6 +1547,14 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("UI launches Docker container", result.stdout)
         self.assertIn("PROGRESS\tstage=startup", result.stdout)
         self.assertIn("PROGRESS\tstage=scaffold", result.stdout)
+
+    def test_runbook_documents_manual_cleanup_and_lm_studio(self) -> None:
+        runbook = Path("RUNBOOK.md").read_text(encoding="utf-8")
+
+        self.assertIn("LM Studio", runbook)
+        self.assertIn("not stated", runbook)
+        self.assertIn("graph.json", runbook)
+        self.assertIn("graph.html", runbook)
 
     def test_requirements_include_core_dependencies(self) -> None:
         requirements = Path("requirements.txt").read_text(encoding="utf-8")

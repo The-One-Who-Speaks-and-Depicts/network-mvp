@@ -1,6 +1,6 @@
 # Female Character Network Visualizer
 
-Current status: early setup with local UI shell, Docker runner, LLM client wrapper, and file ingestion.
+Current status: scaffolded local workflow with documented setup, runbook, service-layer pipeline stages, export path, and validation coverage.
 
 This repository currently contains:
 
@@ -29,7 +29,7 @@ It does **not yet** contain full text-processing pipeline. Current preprocessing
 
 ## Version
 
-Current development version: `0.17.0-dev`
+Current development version: `0.18.0-dev`
 
 ## Requirements
 
@@ -37,6 +37,8 @@ To run locally, you need:
 
 - Python 3.12
 - Docker
+- Python dependencies from `requirements.txt`
+- optional: LM Studio in server mode for local LLM-backed stages
 
 Install Python dependencies:
 
@@ -44,9 +46,12 @@ Install Python dependencies:
 python3 -m pip install -r requirements.txt
 ```
 
-Optional later requirement:
+Recommended local LLM context:
 
-- LM Studio in server mode, once LLM integration is implemented
+- small model compatible with LM Studio
+- OpenAI-compatible server mode enabled
+- default endpoint `http://127.0.0.1:1234/v1`
+- exact loaded model name available for UI form
 
 ## Repository layout
 
@@ -118,7 +123,28 @@ Female Character Network Visualizer scaffold
 Start local UI with: streamlit run app/ui/app.py
 ```
 
-## Local UI run
+## Quick start
+
+### 1. Prepare input data
+
+Expected corpus shape:
+
+- `.txt` files only
+- one text per file
+- UTF-8 encoding
+- filenames retained as provenance in outputs
+
+### 2. Start LM Studio
+
+When running local LLM-backed stages later:
+
+- open LM Studio
+- load local model
+- enable server mode
+- confirm endpoint `http://127.0.0.1:1234/v1`
+- copy model name into UI form
+
+### 3. Start local UI
 
 From repository root:
 
@@ -137,6 +163,19 @@ Current UI provides:
 - current stage display
 - file-count progress display where backend reports counts
 - clear completion/failure state
+
+### 4. Run sample flow
+
+Enter:
+
+- corpus directory
+- output directory
+- LM Studio base URL
+- model name
+
+Press `Start run`.
+
+Current container entrypoint still scaffold-oriented, but service-layer flow and artifacts are covered by tests and runbook.
 
 ## File ingestion
 
@@ -268,6 +307,13 @@ Progress line format:
 PROGRESS\tstage=<stage>\tcompleted=<n>\ttotal=<n>\tstatus=<state>\tmessage=<text>
 ```
 
+Example scaffold output:
+
+```text
+PROGRESS	stage=startup	completed=0	total=0	status=running	message=Container started
+PROGRESS	stage=scaffold	completed=0	total=0	status=completed	message=Scaffold run completed
+```
+
 ## Smoke and schema validation
 
 Current test suite now includes:
@@ -302,6 +348,43 @@ Run tests:
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+## Manual post-processing expectations
+
+Human review still required after graph export.
+
+Review `graph.json` for:
+
+- edges with `semantic_relation` set to `not stated`
+- low-confidence semantic labels
+- over-merged entities
+- unresolved or conservative `gender_inference`
+- provenance that needs manual checking against source files
+
+Expected human-in-loop cleanup:
+
+1. remove or relabel `not stated` edges
+2. inspect low-confidence relation assignments
+3. adjust downstream schema if recurring valid relation falls outside allowed label set
+4. keep source-file evidence intact during manual edits
+
+## Known limitations
+
+Current limitations:
+
+- full end-to-end container pipeline not wired yet
+- `app.main` still scaffold entrypoint
+- service-layer coverage stronger than runtime orchestration coverage
+- semantic relation extraction limited to fixed allowed schema
+- `not stated` output expected and intentionally preserved for manual cleanup
+- gender inference heuristic remains coarse and name-based
+- progress display only as good as backend `PROGRESS` line emission
+
+## Runbook
+
+See full operator notes in:
+
+- `RUNBOOK.md`
 
 ## Docker run
 
@@ -374,7 +457,7 @@ Current GitHub Actions pipeline checks:
 
 Planned future steps:
 
-- documentation and runbook
+- none in current issue plan; issue list complete through 18
 
 ## Main project document
 
