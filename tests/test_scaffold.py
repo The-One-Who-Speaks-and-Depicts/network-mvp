@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from app.config import AppConfig, ConfigError
 from app.graph.build import GraphBuildResult, GraphBuilder
@@ -182,7 +183,7 @@ class ScaffoldTests(unittest.TestCase):
                 export_result.json_path.read_text(encoding="utf-8")
             )
             result["html"] = export_result.html_path.read_text(encoding="utf-8")
-            result["html_path"] = export_result.html_path
+            result["html_exists"] = export_result.html_path.is_file()
 
         return result
 
@@ -1489,7 +1490,7 @@ class ScaffoldTests(unittest.TestCase):
     def test_smoke_tiny_corpus_happy_path(self) -> None:
         result = self._run_tiny_corpus_pipeline()
 
-        self.assertTrue(result["html_path"].is_file())
+        self.assertTrue(result["html_exists"])
         self.assertEqual(len(result["source_files"]), 2)
         self.assertEqual(len(result["normalized_files"]), 2)
         self.assertEqual(len(result["lemmatized_files"]), 2)
@@ -1539,6 +1540,81 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION=true", command)
         self.assertIn("NETWORK_MVP_ENABLE_DEBUG_LOGGING=false", command)
         self.assertIn("network-mvp:test", command)
+
+    def test_docker_runner_builds_missing_image_before_run(self) -> None:
+        config = AppConfig.from_mapping(
+            {
+                "input_dir": "./data",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                "model_name": "local-model",
+            }
+        )
+        runner = DockerRunner(image_name="network-mvp:test")
+
+        with mock.patch("app.services.docker_runner.subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                subprocess.CompletedProcess(
+                    ["docker", "image", "inspect", "network-mvp:test"],
+                    1,
+                    stdout="",
+                    stderr="missing",
+                ),
+                subprocess.CompletedProcess(
+                    ["docker", "build", "-t", "network-mvp:test", "."],
+                    0,
+                    stdout="built",
+                    stderr="",
+                ),
+                subprocess.CompletedProcess(
+                    ["docker", "run"],
+                    0,
+                    stdout="ok",
+                    stderr="",
+                ),
+            ]
+
+            result = runner.run(config)
+
+        self.assertTrue(result.succeeded)
+        self.assertEqual(mock_run.call_args_list[1].kwargs["cwd"], runner.project_root)
+        self.assertEqual(
+            mock_run.call_args_list[1].args[0],
+            ["docker", "build", "-t", "network-mvp:test", "."],
+        )
+
+    def test_docker_runner_returns_build_failure_when_image_build_fails(self) -> None:
+        config = AppConfig.from_mapping(
+            {
+                "input_dir": "./data",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                "model_name": "local-model",
+            }
+        )
+        runner = DockerRunner(image_name="network-mvp:test")
+
+        with mock.patch("app.services.docker_runner.subprocess.run") as mock_run:
+            mock_run.side_effect = [
+                subprocess.CompletedProcess(
+                    ["docker", "image", "inspect", "network-mvp:test"],
+                    1,
+                    stdout="",
+                    stderr="missing",
+                ),
+                subprocess.CompletedProcess(
+                    ["docker", "build", "-t", "network-mvp:test", "."],
+                    1,
+                    stdout="",
+                    stderr="build failed",
+                ),
+            ]
+
+            result = runner.run(config)
+
+        self.assertFalse(result.succeeded)
+        self.assertEqual(result.command, ["docker", "build", "-t", "network-mvp:test", "."])
+        self.assertEqual(result.stderr, "build failed")
 
     def test_llm_client_uses_config_values(self) -> None:
         config = AppConfig.from_mapping(

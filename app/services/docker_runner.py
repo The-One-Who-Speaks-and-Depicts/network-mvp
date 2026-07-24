@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 import subprocess
 
 from app.config import AppConfig
@@ -23,6 +24,7 @@ class DockerRunResult:
 class DockerRunner:
     def __init__(self, image_name: str = "network-mvp:test") -> None:
         self.image_name = image_name
+        self.project_root = Path(__file__).resolve().parents[2]
 
     def build_command(self, config: AppConfig) -> list[str]:
         return [
@@ -51,8 +53,15 @@ class DockerRunner:
             self.image_name,
         ]
 
+    def build_image_command(self) -> list[str]:
+        return ["docker", "build", "-t", self.image_name, "."]
+
     def run(self, config: AppConfig) -> DockerRunResult:
         config.output_dir.mkdir(parents=True, exist_ok=True)
+        ensure_result = self._ensure_image_available()
+        if ensure_result is not None:
+            return ensure_result
+
         command = self.build_command(config)
         completed = subprocess.run(
             command,
@@ -65,4 +74,33 @@ class DockerRunner:
             returncode=completed.returncode,
             stdout=completed.stdout,
             stderr=completed.stderr,
+        )
+
+    def _ensure_image_available(self) -> DockerRunResult | None:
+        inspect_command = ["docker", "image", "inspect", self.image_name]
+        inspect_result = subprocess.run(
+            inspect_command,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if inspect_result.returncode == 0:
+            return None
+
+        build_command = self.build_image_command()
+        build_result = subprocess.run(
+            build_command,
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=self.project_root,
+        )
+        if build_result.returncode == 0:
+            return None
+
+        return DockerRunResult(
+            command=build_command,
+            returncode=build_result.returncode,
+            stdout=build_result.stdout,
+            stderr=build_result.stderr,
         )
