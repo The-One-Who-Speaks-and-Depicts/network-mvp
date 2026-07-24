@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -193,6 +194,19 @@ class ScaffoldTests(unittest.TestCase):
                     "enable_debug_logging": "maybe",
                 }
             )
+
+    def test_config_from_mapping_uses_default_flags(self) -> None:
+        config = AppConfig.from_mapping(
+            {
+                "input_dir": "input-data",
+                "output_dir": "output-data",
+                "lmstudio_base_url": "http://localhost:1234/v1",
+                "model_name": "local-model",
+            }
+        )
+
+        self.assertTrue(config.enable_semantic_annotation)
+        self.assertFalse(config.enable_debug_logging)
 
     def test_file_ingestion_discovers_only_txt_files(self) -> None:
         service = FileIngestionService()
@@ -1203,6 +1217,147 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(response.progress_state.completed_files, 5)
         self.assertEqual(response.progress_state.total_files, 5)
         self.assertEqual(response.progress_state.status, "completed")
+
+    def test_graph_export_json_schema_shape(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="грикша",
+                aliases=("Грикша",),
+                source_files=("003.003.txt",),
+                evidence=("грикши",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="федосьꙗ",
+                aliases=("Федосьꙗ",),
+                source_files=("003.003.txt",),
+                evidence=("федосьӏ",),
+                gender_inference="female",
+            ),
+        ]
+        edges = [
+            SemanticEdge(
+                source="грикша",
+                target="федосьꙗ",
+                weight=1,
+                source_files=("003.003.txt",),
+                semantic_relation="daughter of",
+                semantic_direction="target_to_source",
+                semantic_confidence=0.8,
+            )
+        ]
+        graph_result = GraphBuilder().build(entities, edges)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            export_result = GraphExporter().export(graph_result.graph, Path(temp_dir))
+            payload = json.loads(export_result.json_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(set(payload.keys()), {"nodes", "edges"})
+        self.assertEqual(len(payload["nodes"]), 2)
+        self.assertEqual(len(payload["edges"]), 1)
+
+        node = payload["nodes"][0]
+        self.assertEqual(
+            set(node.keys()),
+            {
+                "id",
+                "label",
+                "aliases",
+                "source_files",
+                "evidence",
+                "gender_inference",
+                "centrality_eigenvector",
+            },
+        )
+
+        edge = payload["edges"][0]
+        self.assertEqual(
+            set(edge.keys()),
+            {
+                "source",
+                "target",
+                "weight",
+                "source_files",
+                "semantic_relation",
+                "semantic_direction",
+                "semantic_confidence",
+            },
+        )
+
+    def test_smoke_tiny_corpus_happy_path(self) -> None:
+        normalization_client = FakeLlmClient(
+            responses=[
+                "княгиня грикша пишет к ѥсифу",
+                "княгиня грикша вспоминает федосьꙗ",
+            ]
+        )
+        lemmatization_client = FakeLlmClient(
+            responses=[
+                "княгиня грикша писать к ѥсифъ",
+                "княгиня грикша вспоминать федосьꙗ",
+            ]
+        )
+        entity_client = FakeLlmClient(
+            responses=[
+                "Княгиня Грикша\tкнягиня грикша\nѤсифъ\tѥсифу",
+                "Княгиня Грикша\tкнягиня грикша\nФедосьꙗ\tфедосьꙗ",
+            ]
+        )
+        semantic_client = FakeLlmClient(
+            responses=[
+                "not stated\t\t0.2",
+                "daughter of\ttarget_to_source\t0.7",
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as input_temp_dir, tempfile.TemporaryDirectory() as output_temp_dir:
+            input_dir = Path(input_temp_dir)
+            output_dir = Path(output_temp_dir)
+            (input_dir / "003.003.txt").write_text("Княгиня Грикша пишет к ѥсифу.", encoding="utf-8")
+            (input_dir / "004.004.txt").write_text("Княгиня Грикша вспоминает Федосьꙗ.", encoding="utf-8")
+
+            config = AppConfig.from_mapping(
+                {
+                    "input_dir": input_dir,
+                    "output_dir": output_dir,
+                    "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                    "model_name": "local-model",
+                    "enable_semantic_annotation": True,
+                }
+            )
+
+            source_files = FileIngestionService().ingest(config)
+            normalized_files = NormalizationService(normalization_client).normalize_files(source_files, output_dir)
+            lemmatized_files = LemmatizationService(lemmatization_client).lemmatize_files(normalized_files, output_dir)
+            candidates = EntityExtractionService(entity_client).extract_candidates(source_files)
+            entities = EntityMergeService().merge_candidates(candidates)
+            edges = CooccurrenceService().build_edges(entities)
+            semantic_edges = SemanticRelationService(semantic_client).annotate_edges(
+                edges,
+                context_by_file={source_file.filename: source_file.text for source_file in source_files},
+                enabled=config.enable_semantic_annotation,
+            )
+            graph_result = GraphBuilder().build(entities, semantic_edges)
+            export_result = GraphExporter().export(graph_result.graph, output_dir)
+            payload = json.loads(export_result.json_path.read_text(encoding="utf-8"))
+            html = export_result.html_path.read_text(encoding="utf-8")
+
+            self.assertTrue(export_result.html_path.is_file())
+
+        self.assertEqual(len(source_files), 2)
+        self.assertEqual(len(normalized_files), 2)
+        self.assertEqual(len(lemmatized_files), 2)
+        self.assertEqual(len(candidates), 4)
+        self.assertEqual(len(entities), 3)
+        self.assertEqual(len(edges), 2)
+        self.assertEqual(len(semantic_edges), 2)
+        self.assertEqual(len(payload["nodes"]), 3)
+        self.assertEqual(len(payload["edges"]), 2)
+        self.assertEqual({node["id"] for node in payload["nodes"]}, {"грикша", "ѥсифъ", "федосьꙗ"})
+        self.assertTrue(all("centrality_eigenvector" in node for node in payload["nodes"]))
+        self.assertTrue(all("source_files" in node for node in payload["nodes"]))
+        self.assertTrue(all("source_files" in edge for edge in payload["edges"]))
+        self.assertIn("<html", html.lower())
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
