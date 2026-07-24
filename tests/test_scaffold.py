@@ -9,6 +9,7 @@ import unittest
 from unittest import mock
 
 from app import main as app_main
+from app.services import llm_client as llm_client_module
 
 from app.config import AppConfig, ConfigError
 from app.graph.build import GraphBuildResult, GraphBuilder
@@ -1629,6 +1630,29 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(response.text, "hello")
         self.assertEqual(factory_calls, [{"base_url": "http://127.0.0.1:1234/v1", "timeout": 12.5}])
         self.assertEqual(completions.calls[0]["model"], "local-model")
+
+    def test_llm_client_default_factory_supplies_lm_studio_api_key(self) -> None:
+        fake_openai_class = mock.Mock(return_value=object())
+        fake_openai_module = type("FakeOpenAiModule", (), {"OpenAI": fake_openai_class})()
+
+        with (
+            mock.patch(
+                "app.services.llm_client.importlib.import_module",
+                return_value=fake_openai_module,
+            ),
+            mock.patch.dict(llm_client_module.os.environ, {}, clear=True),
+        ):
+            client = LlmClient(
+                base_url="http://127.0.0.1:1234/v1",
+                model_name="local-model",
+            )
+
+        self.assertIsInstance(client, LlmClient)
+        fake_openai_class.assert_called_once_with(
+            base_url="http://127.0.0.1:1234/v1",
+            timeout=60.0,
+            api_key="lm-studio",
+        )
 
     def test_llm_client_builds_messages_and_extracts_text(self) -> None:
         completions = FakeCompletions(response=FakeResponse(" answer text "))

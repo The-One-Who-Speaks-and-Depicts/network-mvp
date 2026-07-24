@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import importlib
+import os
 from typing import Any, Callable, Protocol
 
 from app.config import AppConfig
@@ -98,4 +99,9 @@ def _default_client_factory(*, base_url: str, timeout: float) -> Any:
     except ModuleNotFoundError as error:
         raise LlmClientError("openai package is required for default client factory") from error
     openai_client_class = getattr(openai_module, "OpenAI")
-    return openai_client_class(base_url=base_url, timeout=timeout)
+    api_key = os.environ.get("OPENAI_API_KEY", "lm-studio")
+    return openai_client_class(
+        base_url=base_url,
+        timeout=timeout,
+        api_key=api_key,
+    )
