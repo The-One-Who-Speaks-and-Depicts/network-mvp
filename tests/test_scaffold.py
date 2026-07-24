@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 from app.config import AppConfig, ConfigError
+from app.pipeline.cooccurrence import CooccurrenceEdge, CooccurrenceService
 from app.pipeline.entities import CandidateEntity, EntityExtractionService
 from app.pipeline.entity_merge import CanonicalEntity, EntityMergeService
 from app.pipeline.file_ingestion import FileIngestionService, SourceFile
@@ -102,6 +103,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/pipeline/lemmatization.py"),
             Path("app/pipeline/entities.py"),
             Path("app/pipeline/entity_merge.py"),
+            Path("app/pipeline/cooccurrence.py"),
             Path("app/services/docker_runner.py"),
             Path("app/services/llm_client.py"),
             Path("prompts/normalization_prompt.txt"),
@@ -658,6 +660,111 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(merged_by_name["федосьꙗ"].gender_inference, "female")
         self.assertEqual(merged_by_name["ольга"].aliases, ("Ольга", "княгиня Ольга"))
         self.assertEqual(merged_by_name["ольга"].source_files, ("005.005.txt", "006.006.txt"))
+
+    def test_cooccurrence_builds_weighted_edges(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="грикша",
+                aliases=("Грикша",),
+                source_files=("003.003.txt", "004.004.txt"),
+                evidence=("грикши",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="ѥсифъ",
+                aliases=("Ѥсифъ",),
+                source_files=("003.003.txt",),
+                evidence=("ѥсифу",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="федосьꙗ",
+                aliases=("Федосьꙗ",),
+                source_files=("003.003.txt",),
+                evidence=("федосьӏ",),
+                gender_inference="female",
+            ),
+            CanonicalEntity(
+                canonical_name="петръ",
+                aliases=("Петръ",),
+                source_files=("004.004.txt",),
+                evidence=("петра",),
+                gender_inference="not-inferred",
+            ),
+        ]
+        edges = CooccurrenceService().build_edges(entities)
+
+        self.assertTrue(all(isinstance(edge, CooccurrenceEdge) for edge in edges))
+        self.assertEqual(
+            [(edge.source, edge.target, edge.weight, edge.source_files) for edge in edges],
+            [
+                ("грикша", "петръ", 1, ("004.004.txt",)),
+                ("грикша", "федосьꙗ", 1, ("003.003.txt",)),
+                ("грикша", "ѥсифъ", 1, ("003.003.txt",)),
+                ("федосьꙗ", "ѥсифъ", 1, ("003.003.txt",)),
+            ],
+        )
+
+    def test_cooccurrence_avoids_self_loops(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="грикша",
+                aliases=("Грикша", "грикша"),
+                source_files=("003.003.txt",),
+                evidence=("грикши", "грикша"),
+                gender_inference="not-inferred",
+            )
+        ]
+        edges = CooccurrenceService().build_edges(entities)
+
+        self.assertEqual(edges, [])
+
+    def test_cooccurrence_with_birchbark_style_entities(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="грикша",
+                aliases=("Грикша",),
+                source_files=("003.003.txt", "004.004.txt"),
+                evidence=("грикши",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="ѥсифъ",
+                aliases=("Ѥсифъ",),
+                source_files=("003.003.txt",),
+                evidence=("ѥсифу",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="федосьꙗ",
+                aliases=("Федосьꙗ",),
+                source_files=("003.003.txt",),
+                evidence=("федосьӏ",),
+                gender_inference="female",
+            ),
+            CanonicalEntity(
+                canonical_name="петръ",
+                aliases=("Петръ",),
+                source_files=("004.004.txt",),
+                evidence=("петра",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="юрга",
+                aliases=("Юрга",),
+                source_files=("004.004.txt",),
+                evidence=("юрги",),
+                gender_inference="female",
+            ),
+        ]
+        edges = CooccurrenceService().build_edges(entities)
+        edge_map = {(edge.source, edge.target): edge for edge in edges}
+
+        self.assertEqual(edge_map[("грикша", "петръ")].source_files, ("004.004.txt",))
+        self.assertEqual(edge_map[("грикша", "юрга")].source_files, ("004.004.txt",))
+        self.assertEqual(edge_map[("грикша", "ѥсифъ")].source_files, ("003.003.txt",))
+        self.assertEqual(edge_map[("федосьꙗ", "ѥсифъ")].weight, 1)
+        self.assertEqual(edge_map[("петръ", "юрга")].weight, 1)
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
