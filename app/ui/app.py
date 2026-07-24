@@ -40,6 +40,17 @@ def main() -> None:
         else:
             st.error(response.status_message)
 
+        if response.progress_state:
+            st.write(f"Current stage: `{response.progress_state.current_stage}`")
+            if response.progress_state.completed_files is not None and response.progress_state.total_files is not None:
+                st.write(
+                    "Files processed: "
+                    f"{response.progress_state.completed_files}/{response.progress_state.total_files}"
+                )
+            st.write(f"Run state: `{response.progress_state.status}`")
+            if response.progress_state.message:
+                st.write(response.progress_state.message)
+
         if response.result:
             if response.result.stdout.strip():
                 st.code(response.result.stdout.strip(), language="text")

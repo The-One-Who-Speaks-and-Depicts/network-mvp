@@ -23,6 +23,6 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 13 Semantic relation annotation
 - [x] 14 Graph builder and centrality
 - [x] 15 JSON and HTML export
-- [ ] 16 Progress reporting
+- [x] 16 Progress reporting
 - [ ] 17 Smoke tests and schema tests
 - [ ] 18 Documentation and runbook

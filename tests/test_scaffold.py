@@ -7,6 +7,7 @@ import unittest
 from app.config import AppConfig, ConfigError
 from app.graph.build import GraphBuildResult, GraphBuilder
 from app.graph.export import GraphExportResult, GraphExporter
+from app.progress.reporting import ProgressReporter, ProgressState
 from app.pipeline.cooccurrence import CooccurrenceEdge, CooccurrenceService
 from app.pipeline.entities import CandidateEntity, EntityExtractionService
 from app.pipeline.semantic_relations import SemanticEdge, SemanticRelationService
@@ -84,6 +85,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/ui"),
             Path("app/pipeline"),
             Path("app/graph"),
+            Path("app/progress"),
             Path("app/services"),
             Path("tests"),
             Path("prompts"),
@@ -103,6 +105,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("app/ui/shell.py"),
             Path("app/graph/build.py"),
             Path("app/graph/export.py"),
+            Path("app/progress/reporting.py"),
             Path("app/pipeline/file_ingestion.py"),
             Path("app/pipeline/normalization.py"),
             Path("app/pipeline/lemmatization.py"),
@@ -1139,6 +1142,68 @@ class ScaffoldTests(unittest.TestCase):
         self.assertTrue("daughter of" in html or "graph-data" in html)
         self.assertTrue("003.003.txt" in html or "graph-data" in html)
 
+    def test_progress_reporter_parses_stage_and_counts(self) -> None:
+        state = ProgressReporter().from_result(
+            stdout=(
+                "PROGRESS\tstage=normalization\tcompleted=2\ttotal=5\tstatus=running"
+                "\tmessage=Normalizing files\n"
+                "PROGRESS\tstage=lemmatization\tcompleted=5\ttotal=5\tstatus=completed"
+                "\tmessage=Lemmatization finished\n"
+            ),
+            stderr="",
+            succeeded=True,
+        )
+
+        self.assertIsInstance(state, ProgressState)
+        self.assertEqual(state.current_stage, "lemmatization")
+        self.assertEqual(state.completed_files, 5)
+        self.assertEqual(state.total_files, 5)
+        self.assertEqual(state.status, "completed")
+        self.assertEqual(state.message, "Lemmatization finished")
+
+    def test_progress_reporter_marks_failed_run(self) -> None:
+        state = ProgressReporter().from_result(
+            stdout="PROGRESS\tstage=entity_extraction\tcompleted=3\ttotal=5\tstatus=running\tmessage=Extracting\n",
+            stderr="container boom",
+            succeeded=False,
+        )
+
+        self.assertEqual(state.current_stage, "entity_extraction")
+        self.assertEqual(state.completed_files, 3)
+        self.assertEqual(state.total_files, 5)
+        self.assertEqual(state.status, "failed")
+        self.assertEqual(state.message, "container boom")
+
+    def test_ui_run_handler_returns_progress_state(self) -> None:
+        runner = FakeRunner(
+            DockerRunResult(
+                command=["docker", "run"],
+                returncode=0,
+                stdout=(
+                    "ok\n"
+                    "PROGRESS\tstage=graph_export\tcompleted=5\ttotal=5"
+                    "\tstatus=completed\tmessage=Artifacts exported\n"
+                ),
+                stderr="",
+            )
+        )
+
+        response = handle_run_request(
+            {
+                "input_dir": "./data",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                "model_name": "local-model",
+            },
+            runner=runner,
+        )
+
+        self.assertIsNotNone(response.progress_state)
+        self.assertEqual(response.progress_state.current_stage, "graph_export")
+        self.assertEqual(response.progress_state.completed_files, 5)
+        self.assertEqual(response.progress_state.total_files, 5)
+        self.assertEqual(response.progress_state.status, "completed")
+
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
             {
@@ -1272,6 +1337,8 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(response.status_message, "Container run completed successfully.")
         self.assertEqual(response.result, runner.result)
         self.assertIsNotNone(runner.received_config)
+        self.assertIsNotNone(response.progress_state)
+        self.assertEqual(response.progress_state.current_stage, "completed")
 
     def test_ui_run_handler_returns_clear_error_for_invalid_inputs(self) -> None:
         response = handle_run_request(
@@ -1309,6 +1376,8 @@ class ScaffoldTests(unittest.TestCase):
 
         self.assertEqual(response.status_message, "Container run failed: boom")
         self.assertEqual(response.result, runner.result)
+        self.assertIsNotNone(response.progress_state)
+        self.assertEqual(response.progress_state.status, "failed")
 
     def test_main_entrypoint_runs(self) -> None:
         result = subprocess.run(
@@ -1320,6 +1389,8 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("Female Character Network Visualizer scaffold", result.stdout)
         self.assertIn("streamlit run app/ui/app.py", result.stdout)
         self.assertIn("UI launches Docker container", result.stdout)
+        self.assertIn("PROGRESS\tstage=startup", result.stdout)
+        self.assertIn("PROGRESS\tstage=scaffold", result.stdout)
 
     def test_requirements_include_core_dependencies(self) -> None:
         requirements = Path("requirements.txt").read_text(encoding="utf-8")
