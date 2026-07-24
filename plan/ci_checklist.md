@@ -20,4 +20,5 @@ Before merging into `dev`, verify:
 - plan status reflects real completion, not partial progress
 - version bump is intentional and unique
 - PR exists with clear title and description
+- changed logic has tests with realistic mocks or real domain fixtures where practical
 - CI is green
