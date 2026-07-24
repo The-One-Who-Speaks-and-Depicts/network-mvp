@@ -12,16 +12,17 @@ Goal: keep implementation sliced into small, context-safe units that can be comp
 6. `06_llm_client.md`
 7. `07_file_ingestion_and_logging.md`
 8. `08_normalization_stage.md`
-9. `09_lemmatization_stage.md`
-10. `10_entity_extraction.md`
-11. `11_entity_merge_logic.md`
-12. `12_cooccurrence_edges.md`
-13. `13_semantic_relation_annotation.md`
-14. `14_graph_builder.md`
-15. `15_export_json_and_html.md`
-16. `16_progress_reporting.md`
-17. `17_tests_smoke_and_schema.md`
-18. `18_docs_and_runbook.md`
+9. `08a_normalization_fixtures.md`
+10. `09_lemmatization_stage.md`
+11. `10_entity_extraction.md`
+12. `11_entity_merge_logic.md`
+13. `12_cooccurrence_edges.md`
+14. `13_semantic_relation_annotation.md`
+15. `14_graph_builder.md`
+16. `15_export_json_and_html.md`
+17. `16_progress_reporting.md`
+18. `17_tests_smoke_and_schema.md`
+19. `18_docs_and_runbook.md`
 
 ## Rules for each issue
 
