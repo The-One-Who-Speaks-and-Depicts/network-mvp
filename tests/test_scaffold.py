@@ -21,7 +21,11 @@ from app.pipeline.semantic_relations import SemanticEdge, SemanticRelationServic
 from app.pipeline.entity_merge import CanonicalEntity, EntityMergeService
 from app.pipeline.file_ingestion import FileIngestionService, SourceFile
 from app.pipeline.lemmatization import LemmatizationService, LemmatizedFile
-from app.pipeline.normalization import NormalizationService, NormalizedFile
+from app.pipeline.normalization import (
+    NormalizationService,
+    NormalizedFile,
+    NormalizationStageError,
+)
 from app.services.docker_runner import DockerRunResult, DockerRunner
 from app.services.llm_client import LlmClient, LlmClientError, LlmResponse
 from app.ui.shell import UiDefaults, UiRunResponse, default_form_values, handle_run_request
@@ -437,7 +441,7 @@ class ScaffoldTests(unittest.TestCase):
             self.assertTrue(log_path.is_file())
             self.assertIn("empty normalization output", log_path.read_text(encoding="utf-8"))
 
-    def test_normalization_writes_log_for_llm_error(self) -> None:
+    def test_normalization_raises_for_first_llm_error_and_writes_detailed_log(self) -> None:
         client = FakeLlmClient(error=LlmClientError("request failed"))
         service = NormalizationService(client)
         source_files = [
@@ -451,12 +455,18 @@ class ScaffoldTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir)
-            normalized_files = service.normalize_files(source_files, output_dir)
             log_path = output_dir / "logs" / "normalization" / "text_0001_letter.txt.log"
 
-            self.assertEqual(normalized_files, [])
+            with self.assertRaises(NormalizationStageError) as error_context:
+                service.normalize_files(source_files, output_dir)
+
             self.assertTrue(log_path.is_file())
-            self.assertIn("request failed", log_path.read_text(encoding="utf-8"))
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("error_type: LlmClientError", log_text)
+            self.assertIn("error_message: request failed", log_text)
+            self.assertIn("source_text:\nraw text", log_text)
+            self.assertIn("prompt:", log_text)
+            self.assertIn("See log:", str(error_context.exception))
 
     def test_normalization_with_zenodo_birchbark_fixtures(self) -> None:
         fixture_dir = Path("tests/fixtures/zenodo_birchbark")
@@ -1837,6 +1847,50 @@ class ScaffoldTests(unittest.TestCase):
             self.assertIn("PROGRESS\tstage=graph_export\tcompleted=1\ttotal=1", stdout)
             self.assertTrue((output_dir / "graph.json").is_file())
             self.assertTrue((output_dir / "graph.html").is_file())
+
+    def test_main_entrypoint_fails_fast_on_first_normalization_llm_error(self) -> None:
+        fake_client = FakeLlmClient(error=LlmClientError("connection refused"))
+
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            input_dir = Path(input_temp_dir)
+            output_dir = Path(output_temp_dir)
+            (input_dir / "003.003.txt").write_text(
+                "Княгиня Грикша пишет к ѥсифу.",
+                encoding="utf-8",
+            )
+
+            buffer = io.StringIO()
+            with (
+                mock.patch(
+                    "app.main.LlmClient.from_config",
+                    return_value=fake_client,
+                ),
+                mock.patch.dict(
+                    "os.environ",
+                    {
+                        "NETWORK_MVP_INPUT_DIR": str(input_dir),
+                        "NETWORK_MVP_OUTPUT_DIR": str(output_dir),
+                        "NETWORK_MVP_LMSTUDIO_BASE_URL": "http://127.0.0.1:1234/v1",
+                        "NETWORK_MVP_MODEL_NAME": "local-model",
+                    },
+                    clear=False,
+                ),
+                mock.patch("sys.stdout", buffer),
+            ):
+                with self.assertRaises(SystemExit) as error_context:
+                    app_main.main()
+
+            stdout = buffer.getvalue()
+            self.assertIn("PROGRESS\tstage=ingestion\tcompleted=1\ttotal=1", stdout)
+            self.assertIn("PROGRESS\tstage=normalization\tcompleted=0\ttotal=1\tstatus=failed", stdout)
+            self.assertNotIn("PROGRESS\tstage=lemmatization", stdout)
+            self.assertIn("Normalization failed on first file", str(error_context.exception))
+            self.assertTrue(
+                (output_dir / "logs" / "normalization" / "text_0001_003.003.txt.log").is_file()
+            )
 
     def test_runbook_documents_lm_studio_and_manual_cleanup(self) -> None:
         runbook = Path("RUNBOOK.md").read_text(encoding="utf-8")

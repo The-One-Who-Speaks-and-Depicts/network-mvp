@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.pipeline.file_ingestion import SourceFile
@@ -15,6 +16,17 @@ class NormalizedFile:
     filename: str
     normalized_text: str
     output_path: Path
+
+
+class NormalizationStageError(RuntimeError):
+    def __init__(self, source_file: SourceFile, log_path: Path, error_message: str) -> None:
+        super().__init__(
+            "Normalization failed on first file "
+            f"{source_file.filename}: {error_message}. See log: {log_path}"
+        )
+        self.source_file = source_file
+        self.log_path = log_path
+        self.error_message = error_message
 
 
 class NormalizationService:
@@ -39,7 +51,7 @@ class NormalizationService:
         prompt_template = self.prompt_template_path.read_text(encoding="utf-8")
         normalized_files: list[NormalizedFile] = []
 
-        for source_file in source_files:
+        for index, source_file in enumerate(source_files):
             prompt = prompt_template.format(text=source_file.text)
             try:
                 response = self.llm_client.prompt(prompt)
@@ -47,7 +59,14 @@ class NormalizationService:
                 if not normalized_text:
                     raise ValueError("empty normalization output")
             except (LlmClientError, ValueError) as error:
-                self._write_malformed_log(malformed_log_dir, source_file, str(error))
+                log_path = self._write_malformed_log(
+                    malformed_log_dir,
+                    source_file,
+                    prompt=prompt,
+                    error=error,
+                )
+                if index == 0 and isinstance(error, LlmClientError):
+                    raise NormalizationStageError(source_file, log_path, str(error)) from error
                 continue
 
             output_path = normalized_dir / f"{source_file.file_id}_{source_file.filename}"
@@ -70,7 +89,29 @@ class NormalizationService:
         self,
         log_dir: Path,
         source_file: SourceFile,
-        error_message: str,
-    ) -> None:
+        *,
+        prompt: str,
+        error: Exception,
+    ) -> Path:
         log_path = log_dir / f"{source_file.file_id}_{source_file.filename}.log"
-        log_path.write_text(error_message, encoding="utf-8")
+        timestamp = datetime.now(timezone.utc).isoformat()
+        log_path.write_text(
+            "\n".join(
+                [
+                    f"timestamp_utc: {timestamp}",
+                    "stage: normalization",
+                    f"file_id: {source_file.file_id}",
+                    f"filename: {source_file.filename}",
+                    f"source_path: {source_file.source_path}",
+                    f"error_type: {type(error).__name__}",
+                    f"error_message: {error}",
+                    "source_text:",
+                    source_file.text,
+                    "prompt:",
+                    prompt,
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return log_path

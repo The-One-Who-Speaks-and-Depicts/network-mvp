@@ -55,7 +55,12 @@ def handle_run_request(
             progress_state=progress_state,
         )
 
-    error_message = result.stderr.strip() or result.stdout.strip() or "Unknown Docker error"
+    error_message = (
+        progress_state.message.strip()
+        or result.stderr.strip()
+        or result.stdout.strip()
+        or "Unknown Docker error"
+    )
     return UiRunResponse(
         config=config,
         status_message=f"Container run failed: {error_message}",

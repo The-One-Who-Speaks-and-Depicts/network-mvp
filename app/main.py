@@ -10,7 +10,7 @@ from app.pipeline.entities import EntityExtractionService
 from app.pipeline.entity_merge import EntityMergeService
 from app.pipeline.file_ingestion import FileIngestionService
 from app.pipeline.lemmatization import LemmatizationService
-from app.pipeline.normalization import NormalizationService
+from app.pipeline.normalization import NormalizationService, NormalizationStageError
 from app.pipeline.semantic_relations import SemanticRelationService
 from app.services.llm_client import LlmClient
 
@@ -51,10 +51,20 @@ def main() -> None:
         message=f"Discovered {total_files} source files",
     )
 
-    normalized_files = NormalizationService(llm_client).normalize_files(
-        source_files,
-        config.output_dir,
-    )
+    try:
+        normalized_files = NormalizationService(llm_client).normalize_files(
+            source_files,
+            config.output_dir,
+        )
+    except NormalizationStageError as error:
+        _emit_progress(
+            stage="normalization",
+            completed=0,
+            total=total_files,
+            status="failed",
+            message=str(error),
+        )
+        raise SystemExit(str(error)) from error
     _emit_progress(
         stage="normalization",
         completed=len(normalized_files),
