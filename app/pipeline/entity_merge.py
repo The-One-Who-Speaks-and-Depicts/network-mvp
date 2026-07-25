@@ -136,12 +136,10 @@ class EntityMergeService:
     def _merge_gender(self, existing: str, incoming: str) -> str:
         if existing == incoming:
             return existing
-        if existing == "not-inferred":
-            return incoming
-        if incoming == "not-inferred":
-            return existing
-        if "female" in {existing, incoming}:
+        if "ambiguous" in {existing, incoming}:
             return "ambiguous"
+        if "female" in {existing, incoming}:
+            return "female"
         if "unresolved" in {existing, incoming}:
             return "unresolved"
         return "not-inferred"

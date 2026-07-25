@@ -814,7 +814,7 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(merged[1].gender_inference, "female")
         self.assertEqual(merged[2].gender_inference, "not-inferred")
 
-    def test_entity_merge_marks_ambiguous_gender_on_conflicting_signals(self) -> None:
+    def test_entity_merge_prefers_female_over_weaker_heuristics(self) -> None:
         merged = EntityMergeService().merge_candidates(
             [
                 CandidateEntity(
@@ -832,7 +832,7 @@ class ScaffoldTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(merged[0].gender_inference, "ambiguous")
+        self.assertEqual(merged[0].gender_inference, "female")
 
     def test_entity_merge_can_delegate_gender_inference_to_llm(self) -> None:
         llm_client = FakeLlmClient(responses=["female"])
