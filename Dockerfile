@@ -10,5 +10,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY prompts ./prompts
+COPY project_description.md ./project_description.md
 
 CMD ["python", "-m", "app.main"]

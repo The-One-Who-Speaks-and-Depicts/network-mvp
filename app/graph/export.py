@@ -289,7 +289,7 @@ class GraphExporter:
         return "\n".join(html_parts)
 
     def _display_name(self, node_name: str) -> str:
-        for separator in ("\t", "\n", "\r"):
+        for separator in ("<tab>", "<newline>", "<return>", "\t", "\n", "\r"):
             if separator in node_name:
                 node_name = node_name.split(separator, 1)[0]
         return " ".join(node_name.split()).strip() or "[unnamed]"

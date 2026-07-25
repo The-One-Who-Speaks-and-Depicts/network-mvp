@@ -1323,6 +1323,13 @@ class ScaffoldTests(unittest.TestCase):
                 gender_inference="not-inferred",
             ),
             CanonicalEntity(
+                canonical_name="лыбедь<tab>бяше три брата: единому имя кии, второму",
+                aliases=("Лыбедь",),
+                source_files=("003.003.txt",),
+                evidence=("лыбедь",),
+                gender_inference="female",
+            ),
+            CanonicalEntity(
                 canonical_name="ольга\nкнягиня",
                 aliases=("Ольга",),
                 source_files=("003.003.txt",),
@@ -1340,6 +1347,10 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(
             labels["кии\tбяше три брата: единому имя кии, второму"],
             "кии",
+        )
+        self.assertEqual(
+            labels["лыбедь<tab>бяше три брата: единому имя кии, второму"],
+            "_лыбедь_",
         )
         self.assertEqual(labels["ольга\nкнягиня"], "_ольга_")
 
