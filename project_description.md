@@ -71,7 +71,8 @@ The pipeline should:
 - merge aliases, nicknames, titles, and patronymics aggressively,
 - support very confident anaphoric/coreferential references,
 - allow group entities where appropriate,
-- define a character mention as a direct name mention or a very confidently traceable anaphoric reference.
+- define a character mention as a direct name mention or a very confidently traceable anaphoric reference,
+- delegate gender inference for merged entities to the local LLM rather than relying primarily on suffix rules.
 
 Relations should be built primarily from co-occurrence within the same file or fragment. Edge weights should equal the number of files in which two entities co-occur.
 
@@ -108,6 +109,7 @@ Node requirements:
 
 - keep all nodes in the graph,
 - assign `gender_inference` to all nodes,
+- infer `gender_inference` from merged aliases and evidence with the local LLM as the primary method,
 - use the canonical actor name as the displayed node label,
 - wrap female labels in underscores for visual emphasis,
 - keep detailed metadata out of the main label and move it into hover pop-ups.
@@ -161,9 +163,9 @@ This project is meant as a research aid, not as a fully automatic truth-producin
 
 Important caveats:
 
-- gender inference is heuristic and based on names and forms in the corpus,
+- gender inference is now delegated to the local LLM, but still remains heuristic and reviewable rather than definitive,
 - normalization and lemmatization may be imperfect,
-- entity merging may occasionally be too aggressive,
+- entity merging may occasionally be too aggressive, especially when extraction noise pollutes a candidate string,
 - semantic relation labels may require manual correction,
 - `not stated` is an expected and acceptable intermediate label.
 

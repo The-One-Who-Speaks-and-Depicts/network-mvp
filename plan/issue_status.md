@@ -27,3 +27,4 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 17 Smoke tests and schema tests
 - [x] 18 Documentation and runbook
 - [x] 19 Lemmatized pipeline alignment and quality gates
+- [x] 20 LLM-based gender inference for merged entities

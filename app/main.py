@@ -101,7 +101,7 @@ def main() -> None:
         message=f"Extracted {len(candidates)} candidate entities",
     )
 
-    entities = EntityMergeService().merge_candidates(candidates)
+    entities = EntityMergeService(llm_client).merge_candidates(candidates)
     edges = CooccurrenceService().build_edges(entities)
     lemmatized_context_by_file = {
         lemmatized_file.filename: lemmatized_file.lemma_text

@@ -234,6 +234,7 @@ class ScaffoldTests(unittest.TestCase):
             Path("prompts/normalization_prompt.txt"),
             Path("prompts/lemmatization_prompt.txt"),
             Path("prompts/entity_extraction_prompt.txt"),
+            Path("prompts/entity_gender_prompt.txt"),
             Path("prompts/semantic_relation_prompt.txt"),
             Path("requirements.txt"),
             Path("pyproject.toml"),
@@ -832,6 +833,23 @@ class ScaffoldTests(unittest.TestCase):
         )
 
         self.assertEqual(merged[0].gender_inference, "ambiguous")
+
+    def test_entity_merge_can_delegate_gender_inference_to_llm(self) -> None:
+        llm_client = FakeLlmClient(responses=["female"])
+        merged = EntityMergeService(llm_client).merge_candidates(
+            [
+                CandidateEntity(
+                    file_id="text_0001",
+                    filename="001.txt",
+                    name="анна<tab>в лѣто 6519. преставися раба божиа анна, цесарица володимиря.",
+                    evidence="анна<tab>в лѣто 6519. преставися раба божиа анна, цесарица володимиря.",
+                ),
+            ]
+        )
+
+        self.assertEqual(merged[0].canonical_name, "анна")
+        self.assertEqual(merged[0].gender_inference, "female")
+        self.assertIn("цесарица володимиря", llm_client.prompts[0])
 
     def test_entity_merge_with_birchbark_style_candidates(self) -> None:
         candidates = [
@@ -1904,6 +1922,8 @@ class ScaffoldTests(unittest.TestCase):
                 "княгиня грикша пишет к ѥсифу",
                 "княгиня грикша писать к ѥсифъ",
                 "Княгиня Грикша\tкнягиня грикша\nѤсифъ\tѥсифу",
+                "female",
+                "not-inferred",
                 "not stated\t\t0.2",
             ]
         )

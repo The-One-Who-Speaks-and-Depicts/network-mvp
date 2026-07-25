@@ -24,6 +24,7 @@ Goal: keep implementation sliced into small, context-safe units that can be comp
 18. `17_tests_smoke_and_schema.md`
 19. `18_docs_and_runbook.md`
 20. `19_lemma_pipeline_and_quality_gates.md`
+21. `20_llm_gender_inference.md`
 
 ## Rules for each issue
 

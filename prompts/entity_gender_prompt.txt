@@ -1,0 +1,32 @@
+Infer gender annotation for merged Old East Slavic entity candidate.
+
+Return exactly one label on one line:
+- female
+- ambiguous
+- unresolved
+- not-inferred
+
+Interpretation:
+- `female` = entity is clearly female from name, title, or evidence
+- `ambiguous` = evidence conflicts or is too mixed to decide cleanly
+- `unresolved` = entity seems person-like, but available evidence does not justify female label
+- `not-inferred` = not enough evidence, non-person/group candidate, or malformed candidate
+
+Rules:
+- use aliases and evidence together
+- prefer direct lexical evidence in snippets, including titles such as `цесарица`, `княгиня`, `госпожа`
+- if candidate name contains extraction noise, focus on recoverable entity string and nearby evidence
+- do not add commentary
+- output label only
+
+Canonical name:
+{canonical_name}
+
+Aliases:
+{aliases}
+
+Evidence snippets:
+{evidence}
+
+Source files:
+{source_files}

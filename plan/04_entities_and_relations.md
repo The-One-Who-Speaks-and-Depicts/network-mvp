@@ -13,11 +13,14 @@ Detect named characters across the corpus and consolidate them into canonical no
 5. merge historical titles
 6. merge patronymics
 7. optionally merge group entities
-8. attach provenance
+8. infer merged-entity gender with local LLM from aliases and evidence
+9. attach provenance
 
 ## Merge policy
 
 Use a **maximally aggressive merge strategy**, but keep enough trace data to audit merges later.
+
+Merge stage should also sanitize obvious extraction noise in candidate strings, such as literal `<tab>` markers or embedded line-break markers, before canonicalization and gender inference.
 
 Suggested node fields:
 
@@ -30,6 +33,8 @@ Suggested node fields:
 - `gender_inference`
 - `source_files`
 - `mention_count`
+
+`gender_inference` should be produced primarily by local-LLM classification over merged aliases and evidence, not by suffix-only rules.
 
 ## Coreference policy
 
