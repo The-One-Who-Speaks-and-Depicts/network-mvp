@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import traceback
 
 from app.pipeline.file_ingestion import SourceFile
 from app.services.llm_client import LlmClientError, PromptingClient
@@ -105,6 +106,8 @@ class NormalizationService:
                     f"source_path: {source_file.source_path}",
                     f"error_type: {type(error).__name__}",
                     f"error_message: {error}",
+                    "traceback:",
+                    "".join(traceback.format_exception(type(error), error, error.__traceback__)).rstrip(),
                     "source_text:",
                     source_file.text,
                     "prompt:",

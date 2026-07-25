@@ -464,6 +464,8 @@ class ScaffoldTests(unittest.TestCase):
             log_text = log_path.read_text(encoding="utf-8")
             self.assertIn("error_type: LlmClientError", log_text)
             self.assertIn("error_message: request failed", log_text)
+            self.assertIn("traceback:", log_text)
+            self.assertIn("LlmClientError: request failed", log_text)
             self.assertIn("source_text:\nraw text", log_text)
             self.assertIn("prompt:", log_text)
             self.assertIn("See log:", str(error_context.exception))
@@ -1702,7 +1704,10 @@ class ScaffoldTests(unittest.TestCase):
             ),
         )
 
-        with self.assertRaisesRegex(LlmClientError, "LLM request failed: connection refused"):
+        with self.assertRaisesRegex(
+            LlmClientError,
+            "LLM request failed\\. base_url=http://127.0.0.1:1234/v1 model=local-model details=RuntimeError",
+        ):
             client.prompt("ping")
 
     def test_llm_client_surfaces_missing_content_error(self) -> None:

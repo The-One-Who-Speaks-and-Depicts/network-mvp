@@ -68,13 +68,28 @@ class LlmClient:
                 messages=messages,
             )
         except Exception as error:  # noqa: BLE001
-            raise LlmClientError(f"LLM request failed: {error}") from error
+            raise LlmClientError(
+                "LLM request failed. "
+                f"base_url={self.base_url} model={self.model_name} details={_format_exception_chain(error)}"
+            ) from error
 
         text = _extract_text(response)
         if not text:
             raise LlmClientError("LLM response did not contain message content")
 
         return LlmResponse(text=text, raw_response=response)
+
+
+def _format_exception_chain(error: BaseException) -> str:
+    chain: list[str] = []
+    current: BaseException | None = error
+    while current is not None:
+        chain.append(f"{type(current).__name__}({current!r})")
+        next_error = current.__cause__ or current.__context__
+        if next_error is current:
+            break
+        current = next_error
+    return " <- ".join(chain)
 
 
 def _extract_text(response: Any) -> str:
