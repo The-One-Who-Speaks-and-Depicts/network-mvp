@@ -122,7 +122,11 @@ def main() -> None:
     )
 
     graph_result = GraphBuilder().build(entities, semantic_edges)
-    GraphExporter().export(graph_result.graph, config.output_dir)
+    GraphExporter().export(
+        graph_result.graph,
+        config.output_dir,
+        source_text_by_file=source_text_by_file,
+    )
     _emit_progress(
         stage="graph_export",
         completed=total_files,

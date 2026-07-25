@@ -10,7 +10,8 @@ Use NetworkX as primary graph engine.
 Required attributes:
 
 - `id`
-- `label`
+- `label` (canonical actor name; wrap in underscores for `female` nodes in HTML/JSON export)
+- `canonical_name`
 - `gender_inference`
 - `centrality_eigenvector`
 - `source_files`
@@ -39,18 +40,24 @@ Implementation notes:
 
 ## HTML visualization
 
-Use pyvis to export static-hostable HTML.
+Use static-hostable HTML with client-side graph interactivity.
 
 ### Visual rules
 - highlight `female` nodes distinctly
-- keep all other nodes visible
-- show tooltip metadata:
-  - label
+- keep all other nodes visible by default
+- show canonical actor name directly on node label
+- wrap female node labels in underscores
+- move detailed node metadata into hover pop-ups:
+  - canonical name
   - gender inference
+  - aliases
+  - evidence
   - centrality
-  - source file count
+  - source files
 - show edge weight
-- show semantic relation/confidence if present
+- show semantic relation/confidence/source files in edge pop-ups
+- provide UI control to hide/show all non-female nodes
+- include explanatory text around graph so artifact reads as a demo page, not only a canvas
 
 ## JSON export
 
@@ -58,6 +65,7 @@ Create `graph.json` with:
 
 - `nodes`: node objects
 - `edges`: edge objects
+- node labels aligned with HTML labels
 - optional metadata block:
   - run timestamp
   - model name
@@ -78,12 +86,14 @@ Ensure HTML artifact:
 
 - opens without server-side rendering,
 - uses portable asset references,
-- can be served from GitHub Pages / Codeberg Pages.
+- can be served from GitHub Pages / Codeberg Pages,
+- includes project-description copy,
+- includes source-text appendix limited to files used in graph.
 
 ## Deliverables
 
 - graph builder
 - centrality calculator
-- pyvis exporter
+- HTML demo-page exporter
 - JSON exporter
 - optional CSV exporters

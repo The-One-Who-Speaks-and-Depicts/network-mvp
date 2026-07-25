@@ -65,6 +65,7 @@
 
 ### `app/graph/export.py`
 - `graph.json`
+- self-contained `graph.html` demo page
 - centrality tables
 - auxiliary outputs
 
@@ -86,7 +87,8 @@
 8. semantic annotation enriches eligible edges
 9. graph builder computes centrality
 10. exporters write HTML + JSON + logs outside container
-11. UI displays completion + artifact locations
+11. HTML exporter embeds explanatory copy, project description, and source-text appendix for files used in graph
+12. UI displays completion + artifact locations
 
 ## Interface boundaries
 
@@ -97,7 +99,7 @@
 - output directory
 
 ### Outputs
-- HTML graph
+- HTML graph demo page with interactive controls
 - `graph.json`
 - preprocessing logs
 - optional CSV/TSV summaries

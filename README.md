@@ -300,8 +300,13 @@ Current service supports:
 - node centrality in JSON output
 - node and edge source references in JSON output
 - static HTML artifact export
-- pyvis-backed HTML when dependency is available
-- fallback static HTML artifact when pyvis is unavailable
+- self-contained `graph.html` demo page
+- canonical actor-name node labels
+- female node labels wrapped in underscores
+- node and edge metadata shown in hover pop-ups
+- embedded project description section in HTML
+- checkbox to hide/show all non-female nodes
+- source-text appendix limited to files referenced by graph nodes or edges
 
 ## Progress reporting
 
@@ -381,6 +386,14 @@ Review `graph.json` for:
 - over-merged entities
 - unresolved or conservative `gender_inference`
 - provenance that needs manual checking against source files
+
+Review `graph.html` for:
+
+- node labels readable as canonical actor names
+- female nodes marked with underscored labels
+- hover pop-ups showing metadata instead of cluttering canvas
+- hide/show non-female control behaving correctly
+- source-text appendix matching files referenced by graph nodes and edges
 
 Expected human-in-loop cleanup:
 

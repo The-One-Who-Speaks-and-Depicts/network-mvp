@@ -62,10 +62,12 @@ Because extraction quality is domain-sensitive, include manual checks for:
 - `not stated` workflow
 
 ### Milestone 6: visualization + exports
-- pyvis HTML
+- HTML demo page with actor-name labels and hover pop-ups
 - `graph.json`
 - CSV summaries
 - static-hosting validation
+- hide/show non-female control
+- embedded source-text appendix and explanatory copy
 
 ### Milestone 7: corpus validation
 - run on representative subset
@@ -80,6 +82,7 @@ Project is done when:
 - UI can launch full run locally,
 - Dockerized pipeline completes successfully,
 - artifacts are exported to host,
-- graph is viewable as static HTML,
+- graph is viewable as static HTML demo page,
 - `graph.json` is valid and complete,
+- HTML controls and source-text appendix work as expected,
 - documentation explains workflow and limitations.

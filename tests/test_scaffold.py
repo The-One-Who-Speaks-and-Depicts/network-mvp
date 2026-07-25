@@ -185,6 +185,7 @@ class ScaffoldTests(unittest.TestCase):
                     result["semantic_edges"],
                 ).graph,
                 output_dir,
+                source_text_by_file=source_text_by_file,
             )
             result["payload"] = json.loads(
                 export_result.json_path.read_text(encoding="utf-8")
@@ -1307,8 +1308,10 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn('"centrality_eigenvector"', graph_json)
         self.assertIn('"source_files"', graph_json)
         self.assertIn('грикша', graph_json)
-        self.assertIn('федосьꙗ', graph_json)
+        self.assertIn('"label": "_федосьꙗ_"', graph_json)
         self.assertIn('<html', graph_html.lower())
+        self.assertIn('Female Character Network Demo', graph_html)
+        self.assertIn('Show non-female nodes', graph_html)
 
     def test_graph_export_with_realistic_semantic_graph(self) -> None:
         entities = [
@@ -1365,8 +1368,9 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn('"semantic_confidence": 0.6', payload)
         self.assertTrue('"source": "ѥсифъ"' in payload or '"target": "ѥсифъ"' in payload)
         self.assertTrue('"source": "федосьꙗ"' in payload or '"target": "федосьꙗ"' in payload)
-        self.assertTrue("daughter of" in html or "graph-data" in html)
-        self.assertTrue("003.003.txt" in html or "graph-data" in html)
+        self.assertIn("daughter of", html)
+        self.assertIn("003.003.txt", html)
+        self.assertIn("Project Description", html)
 
     def test_progress_reporter_parses_stage_and_counts(self) -> None:
         state = ProgressReporter().from_result(
@@ -1480,6 +1484,7 @@ class ScaffoldTests(unittest.TestCase):
             {
                 "id",
                 "label",
+                "canonical_name",
                 "aliases",
                 "source_files",
                 "evidence",
@@ -1532,6 +1537,9 @@ class ScaffoldTests(unittest.TestCase):
             all("source_files" in edge for edge in result["payload"]["edges"])
         )
         self.assertIn("<html", result["html"].lower())
+        self.assertIn("Source Texts Used in This Graph", result["html"])
+        self.assertIn("003.003.txt", result["html"])
+        self.assertIn("Княгиня Грикша пишет к ѥсифу.", result["html"])
 
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(

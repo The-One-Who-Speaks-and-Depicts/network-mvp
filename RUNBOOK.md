@@ -108,6 +108,12 @@ Check:
 - node records include `centrality_eigenvector`
 - nodes and edges keep `source_files`
 - `graph.html` opens as static file
+- graph page shows explanatory text and project description
+- node labels show canonical actor names
+- female labels are wrapped in underscores
+- node and edge details appear on hover
+- hide/show non-female control works
+- source-text appendix lists files referenced by graph nodes and edges
 
 ## Manual post-processing
 
@@ -120,6 +126,9 @@ Review exported graph for:
 - over-merged entities
 - conservative `gender_inference`
 - suspicious provenance on `source_files`
+- misleading female/non-female highlighting
+- labels or pop-ups that confuse readers
+- source texts that should not appear or are missing from appendix
 
 Manual cleanup steps:
 

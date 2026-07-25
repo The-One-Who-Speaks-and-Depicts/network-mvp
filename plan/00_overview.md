@@ -9,7 +9,7 @@ Build a local, Docker-run Python application that:
 3. extracts named characters and relations,
 4. builds a whole-corpus character graph,
 5. highlights female characters,
-6. exports a static HTML graph plus JSON artifacts.
+6. exports a static HTML graph demo page plus JSON artifacts.
 
 ## Delivery strategy
 
@@ -56,6 +56,7 @@ MVP should prioritize:
 - LM Studio connectivity,
 - whole-corpus graph generation,
 - female-node highlighting,
+- readable actor-name labels with richer hover metadata,
 - `graph.json` + HTML export.
 
 Semantic relation quality can be iterative after MVP.
@@ -77,5 +78,6 @@ A run is successful when it:
 - produces normalized and lemmatized outputs,
 - builds graph with weighted edges,
 - calculates eigenvector centrality,
-- writes static HTML graph and `graph.json` outside container,
+- writes static HTML graph page and `graph.json` outside container,
+- HTML page explains demo, supports hiding/showing non-female nodes, and includes used source texts,
 - shows run progress in UI.

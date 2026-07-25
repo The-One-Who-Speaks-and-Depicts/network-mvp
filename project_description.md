@@ -44,11 +44,16 @@
 * Keep all nodes
 * Use `gender_inference` for all nodes
 * Visually highlight only female nodes
+* Label each node with the canonical actor name; female labels should be visually marked with surrounding underscores
+* Put detailed node and edge metadata into hover pop-ups rather than crowding the graph canvas
+* Provide a control in the HTML artifact to hide/show all non-female nodes while preserving them in the underlying graph
 
 ## Artifact
 
 * HTML network graph that can be loaded on a static web page (Codeberg Pages / GitHub Pages); data format should match that requirement
+* `graph.html` should be a self-contained demo page, not only a raw graph canvas: include a short explanation of the demo and embed the project description text
 * Graph for the whole corpus; retain file/source references as lists of file names (not full paths)
+* Include the source texts used by the exported graph in the HTML page, limited to files referenced by graph nodes or edges
 * Allow downloading nodes/edges as JSON (`graph.json`: nodes + edges, centrality embedded in nodes, source references on both nodes and edges, semantic relation confidence attached to edges)
 * One edge can contain both weight and optional semantic annotation
 * Character centralities
