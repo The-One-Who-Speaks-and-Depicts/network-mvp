@@ -1313,6 +1313,36 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn('Female Character Network Demo', graph_html)
         self.assertIn('Show non-female nodes', graph_html)
 
+    def test_graph_export_sanitizes_node_labels_for_display(self) -> None:
+        entities = [
+            CanonicalEntity(
+                canonical_name="кии\tбяше три брата: единому имя кии, второму",
+                aliases=("Кии",),
+                source_files=("003.003.txt",),
+                evidence=("кии",),
+                gender_inference="not-inferred",
+            ),
+            CanonicalEntity(
+                canonical_name="ольга\nкнягиня",
+                aliases=("Ольга",),
+                source_files=("003.003.txt",),
+                evidence=("ольга",),
+                gender_inference="female",
+            ),
+        ]
+        graph_result = GraphBuilder().build(entities, [])
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = GraphExporter().export(graph_result.graph, Path(temp_dir))
+            payload = json.loads(result.json_path.read_text(encoding="utf-8"))
+
+        labels = {node["id"]: node["label"] for node in payload["nodes"]}
+        self.assertEqual(
+            labels["кии\tбяше три брата: единому имя кии, второму"],
+            "кии",
+        )
+        self.assertEqual(labels["ольга\nкнягиня"], "_ольга_")
+
     def test_graph_export_with_realistic_semantic_graph(self) -> None:
         entities = [
             CanonicalEntity(

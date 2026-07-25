@@ -49,9 +49,10 @@ class GraphExporter:
         nodes: list[dict[str, object]] = []
         for node_name, attributes in self._iter_nodes(graph):
             gender_inference = attributes.get("gender_inference")
+            display_name = self._display_name(node_name)
             node_record = {
                 "id": node_name,
-                "label": self._node_label(node_name, gender_inference),
+                "label": self._node_label(display_name, gender_inference),
                 "canonical_name": node_name,
                 "aliases": list(attributes.get("aliases", ())),
                 "source_files": list(attributes.get("source_files", ())),
@@ -175,7 +176,7 @@ class GraphExporter:
             "      id: node.id,\n"
             "      label: node.label,\n"
             "      title: [\n"
-            "        'canonical name: ' + node.canonical_name,\n"
+            "        'name: ' + node.label,\n"
             "        'gender: ' + node.gender_inference,\n"
             "        'aliases: ' + (node.aliases.join(', ') || '—'),\n"
             "        'evidence: ' + (node.evidence.join(', ') || '—'),\n"
@@ -286,6 +287,12 @@ class GraphExporter:
         if in_list:
             html_parts.append("</ul>")
         return "\n".join(html_parts)
+
+    def _display_name(self, node_name: str) -> str:
+        for separator in ("\t", "\n", "\r"):
+            if separator in node_name:
+                node_name = node_name.split(separator, 1)[0]
+        return " ".join(node_name.split()).strip() or "[unnamed]"
 
     def _node_label(self, node_name: str, gender_inference: object) -> str:
         if gender_inference == "female":

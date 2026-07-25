@@ -1,61 +1,170 @@
 # Female Character Network Visualizer
 
-## Stack
+## Project Summary
 
-* Main language: Python
-* Required packages: NetworkX, pyvis, pandas
-* Additional tools: Docker, local LLM
-* Runtime constraints: I have no ability to train or fine-tune models, only to run a model smaller than 4GB.
+This project builds a local research demo for exploring character networks in Old East Slavic texts, with a special focus on women mentioned in the corpus. The application processes a directory of short `.txt` files, runs a lightweight NLP pipeline with a local LLM, extracts named characters and their relationships, and exports an interactive graph together with machine-readable artifacts.
 
-## Workflow
+The goal is not to produce a final scholarly edition automatically. The goal is to produce a transparent, inspectable demo that helps a researcher move from a raw corpus to a graph that can be reviewed, corrected, and discussed.
 
-* Run a GUI interface (a locally run web UI)
-* Accept the data location
-* Accept the local LLM configuration (I will be using LM Studio)
-* Initialise a Docker container for each run (use a fixed image and mount code/data volumes into the container); ensure that the container has access to a local LLM (LM Studio in server mode on localhost, via an OpenAI-compatible API)
-* Preprocess the data
-* Run the pipeline
-* Get the output
-* Export the output artifact from the container back to the host
-* Show progress in the GUI
+## Technical Constraints
 
-## Data
+- Main language: Python
+- Core packages: NetworkX, pyvis, pandas
+- Runtime environment: local machine with Docker
+- LLM runtime: local OpenAI-compatible endpoint, expected to be LM Studio
+- Model constraint: no fine-tuning; model size should remain below roughly 4 GB
 
-* Corpus size: no more than 50K tokens
-* Number of texts: approx. 1000; only a couple are longer than two lines (most are birchbark letters)
-* Raw texts, each in a separate `.txt` file
-* File size: very small, usually no more than 1 KB
+## User Workflow
 
-## Preprocessing steps
+The intended workflow is:
 
-* Perform preprocessing for each file
-* Normalisation: convert the data to canonical Old East Slavic form, restoring etymological reduced vowels, yats, and `в/у`. Delete line breaks. Preserve punctuation. Preserve token count alignment where possible (approximate alignment is acceptable). Store the original in a log (per file, inside the container, plain text; export it outside the container after the run). Expected output: the same text, but normalised.
-* Lemmatisation: produce a plain-text lemma sequence for each file
-* Use a local LLM for both steps; if possible, a Russian National Corpus-based dictionary and rule-based system will also suffice
+1. launch a local web UI,
+2. choose the corpus directory,
+3. provide local LLM settings,
+4. start a Dockerized run,
+5. preprocess the corpus,
+6. extract characters and relations,
+7. build the corpus-wide graph,
+8. export artifacts back to the host machine,
+9. inspect results in the browser and in exported files.
 
-## Pipeline
+The UI should also surface progress and fail clearly when the pipeline cannot continue.
 
-* Extract all named characters; merge aliases/nicknames, historical titles, and patronymics; use a maximally aggressive merge strategy; include pronoun/coreference handling; allow group entities; define a character mention as a direct mention of a name or a very confidently traceable anaphoric reference
-* Extract the relationships between them (co-occurrence in the same fragment, at text/file level); attempt to infer semantic relations and their directions with a local LLM; use weighted edges, where `edge.weight` = number of files in which 2 entities co-occur
-* Semantic relations: princess of Y, wife of X, daughter of X, mother of X, sister of X, grandmother of X, aunt of X, granddaughter of X, in-law of X, prince of Y, husband of X, son of X, father of X, brother of X, grandfather of X, uncle of X, grandson of X, not stated (if a relation does not fit the schema, mark it as `not stated`; it will be eliminated in manual post-processing, and the schema will be corrected afterwards if necessary; this is a human-in-the-loop step). Add a confidence score.
-* Visualise the relationships between them in graph form (use eigenvector centrality)
-* Highlight female characters (infer from names; allow ambiguous cases; assume the data renders gender correctly, but include a disclaimer about this)
-* Tagging schema: `gender_inference: female|ambiguous|unresolved|not-inferred`
-* Keep all nodes
-* Use `gender_inference` for all nodes
-* Visually highlight only female nodes
-* Label each node with the canonical actor name; female labels should be visually marked with surrounding underscores
-* Put detailed node and edge metadata into hover pop-ups rather than crowding the graph canvas
-* Provide a control in the HTML artifact to hide/show all non-female nodes while preserving them in the underlying graph
+## Corpus Assumptions
 
-## Artifact
+- Corpus size: up to roughly 50K tokens
+- Number of texts: about 1000
+- Typical file size: very small, often under 1 KB
+- File format: one raw `.txt` file per text
+- Text profile: mostly very short birchbark letters, with only a few longer texts
 
-* HTML network graph that can be loaded on a static web page (Codeberg Pages / GitHub Pages); data format should match that requirement
-* `graph.html` should be a self-contained demo page, not only a raw graph canvas: include a short explanation of the demo and embed the project description text
-* Graph for the whole corpus; retain file/source references as lists of file names (not full paths)
-* Include the source texts used by the exported graph in the HTML page, limited to files referenced by graph nodes or edges
-* Allow downloading nodes/edges as JSON (`graph.json`: nodes + edges, centrality embedded in nodes, source references on both nodes and edges, semantic relation confidence attached to edges)
-* One edge can contain both weight and optional semantic annotation
-* Character centralities
-* Gender inference tags
-* Obtainable outside the container
+## Preprocessing
+
+Each file should pass through two preprocessing steps:
+
+### 1. Normalization
+
+Normalize the text into a canonical Old East Slavic form.
+
+Requirements:
+
+- restore etymological reduced vowels where possible,
+- restore yats where possible,
+- normalize `в/у`,
+- remove line breaks,
+- preserve punctuation,
+- preserve approximate token alignment where possible.
+
+The original text must also be stored in a per-file log and exported outside the container.
+
+### 2. Lemmatization
+
+Produce a plain-text lemma sequence for each file.
+
+Both normalization and lemmatization are expected to use a local LLM, although a rule-based or dictionary-supported fallback would also be acceptable if introduced later.
+
+## Entity and Relation Extraction
+
+The pipeline should:
+
+- extract named characters,
+- merge aliases, nicknames, titles, and patronymics aggressively,
+- support very confident anaphoric/coreferential references,
+- allow group entities where appropriate,
+- define a character mention as a direct name mention or a very confidently traceable anaphoric reference.
+
+Relations should be built primarily from co-occurrence within the same file or fragment. Edge weights should equal the number of files in which two entities co-occur.
+
+The system should also attempt optional semantic relation annotation with a local LLM.
+
+Allowed semantic labels:
+
+- princess of Y
+- wife of X
+- daughter of X
+- mother of X
+- sister of X
+- grandmother of X
+- aunt of X
+- granddaughter of X
+- in-law of X
+- prince of Y
+- husband of X
+- son of X
+- father of X
+- brother of X
+- grandfather of X
+- uncle of X
+- grandson of X
+- not stated
+
+If a relation does not fit the schema, it should be marked as `not stated`. This is an expected human-in-the-loop outcome, not a hard error.
+
+## Graph Requirements
+
+The final graph should represent the whole corpus and compute eigenvector centrality for nodes.
+
+Node requirements:
+
+- keep all nodes in the graph,
+- assign `gender_inference` to all nodes,
+- use the canonical actor name as the displayed node label,
+- wrap female labels in underscores for visual emphasis,
+- keep detailed metadata out of the main label and move it into hover pop-ups.
+
+Gender tagging schema:
+
+- `female`
+- `ambiguous`
+- `unresolved`
+- `not-inferred`
+
+The graph should visually highlight only female nodes, while preserving all other nodes for context. The HTML artifact should also provide a control to hide or show non-female nodes without deleting them from the graph.
+
+## Exported Artifacts
+
+The project should export artifacts that can be opened directly outside the container.
+
+### `graph.html`
+
+`graph.html` should be a self-contained static demo page suitable for static hosting.
+
+It should include:
+
+- an explanation of what the graph shows,
+- a polished project description,
+- an interactive network view,
+- hover pop-ups for node and edge metadata,
+- a control to hide/show non-female nodes,
+- the source texts used in the exported graph,
+- a raw graph-data section for inspection.
+
+### `graph.json`
+
+`graph.json` should contain:
+
+- nodes,
+- edges,
+- centrality embedded in node records,
+- source-file references on both nodes and edges,
+- semantic relation confidence on edges where available.
+
+### Additional expectations
+
+- one edge may contain both a co-occurrence weight and a semantic annotation,
+- file references should use file names, not full paths,
+- artifacts should remain inspectable and easy to review manually.
+
+## Research and Interpretation Notes
+
+This project is meant as a research aid, not as a fully automatic truth-producing system.
+
+Important caveats:
+
+- gender inference is heuristic and based on names and forms in the corpus,
+- normalization and lemmatization may be imperfect,
+- entity merging may occasionally be too aggressive,
+- semantic relation labels may require manual correction,
+- `not stated` is an expected and acceptable intermediate label.
+
+The system should therefore prioritize transparency, provenance, and manual reviewability over false precision.
