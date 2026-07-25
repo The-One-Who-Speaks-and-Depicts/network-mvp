@@ -34,7 +34,7 @@ class DockerRunner:
             "run",
             "--rm",
         ]
-        if lmstudio_base_url != config.lmstudio_base_url:
+        if self._needs_host_gateway(config.lmstudio_base_url):
             command.extend(["--add-host", "host.docker.internal:host-gateway"])
         command.extend(
             [
@@ -84,6 +84,10 @@ class DockerRunner:
             stdout=completed.stdout,
             stderr=completed.stderr,
         )
+
+    def _needs_host_gateway(self, base_url: str) -> bool:
+        hostname = urlsplit(base_url).hostname
+        return hostname in {"127.0.0.1", "localhost", "::1", "host.docker.internal"}
 
     def _container_base_url(self, base_url: str) -> str:
         parsed = urlsplit(base_url)
