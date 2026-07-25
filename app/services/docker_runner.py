@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import subprocess
+import sys
 from urllib.parse import urlsplit, urlunsplit
 
 from app.config import AppConfig
@@ -34,7 +35,9 @@ class DockerRunner:
             "run",
             "--rm",
         ]
-        if self._needs_host_gateway(config.lmstudio_base_url):
+        if self._should_use_host_network(config.lmstudio_base_url):
+            command.extend(["--network", "host"])
+        elif self._needs_host_gateway(config.lmstudio_base_url):
             command.extend(["--add-host", "host.docker.internal:host-gateway"])
         command.extend(
             [
@@ -85,15 +88,30 @@ class DockerRunner:
             stderr=completed.stderr,
         )
 
+    def _should_use_host_network(self, base_url: str) -> bool:
+        hostname = urlsplit(base_url).hostname
+        return sys.platform.startswith("linux") and hostname in {
+            "127.0.0.1",
+            "localhost",
+            "::1",
+            "host.docker.internal",
+        }
+
     def _needs_host_gateway(self, base_url: str) -> bool:
         hostname = urlsplit(base_url).hostname
-        return hostname in {"127.0.0.1", "localhost", "::1", "host.docker.internal"}
+        return not self._should_use_host_network(base_url) and hostname in {
+            "127.0.0.1",
+            "localhost",
+            "::1",
+            "host.docker.internal",
+        }
 
     def _container_base_url(self, base_url: str) -> str:
         parsed = urlsplit(base_url)
-        if parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+        if parsed.hostname not in {"127.0.0.1", "localhost", "::1", "host.docker.internal"}:
             return base_url
-        netloc = parsed.netloc.replace(parsed.hostname, "host.docker.internal", 1)
+        target_hostname = "127.0.0.1" if self._should_use_host_network(base_url) else "host.docker.internal"
+        netloc = parsed.netloc.replace(parsed.hostname, target_hostname, 1)
         return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 
     def _build_image(self) -> DockerRunResult | None:

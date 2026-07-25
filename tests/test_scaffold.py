@@ -1548,12 +1548,13 @@ class ScaffoldTests(unittest.TestCase):
         command = DockerRunner(image_name="network-mvp:test").build_command(config)
 
         self.assertEqual(command[0:3], ["docker", "run", "--rm"])
-        self.assertIn("--add-host", command)
-        self.assertIn("host.docker.internal:host-gateway", command)
+        self.assertIn("--network", command)
+        self.assertIn("host", command)
+        self.assertNotIn("--add-host", command)
         self.assertIn("NETWORK_MVP_INPUT_DIR=/data/input", command)
         self.assertIn("NETWORK_MVP_OUTPUT_DIR=/data/output", command)
         self.assertIn(
-            "NETWORK_MVP_LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1",
+            "NETWORK_MVP_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1",
             command,
         )
         self.assertIn("NETWORK_MVP_MODEL_NAME=local-model", command)
@@ -1561,7 +1562,7 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIn("NETWORK_MVP_ENABLE_DEBUG_LOGGING=false", command)
         self.assertIn("network-mvp:test", command)
 
-    def test_docker_runner_adds_host_gateway_for_host_docker_internal(self) -> None:
+    def test_docker_runner_uses_host_network_for_host_docker_internal(self) -> None:
         config = AppConfig.from_mapping(
             {
                 "input_dir": "./data",
@@ -1573,10 +1574,11 @@ class ScaffoldTests(unittest.TestCase):
 
         command = DockerRunner(image_name="network-mvp:test").build_command(config)
 
-        self.assertIn("--add-host", command)
-        self.assertIn("host.docker.internal:host-gateway", command)
+        self.assertIn("--network", command)
+        self.assertIn("host", command)
+        self.assertNotIn("--add-host", command)
         self.assertIn(
-            "NETWORK_MVP_LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1",
+            "NETWORK_MVP_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1",
             command,
         )
 
