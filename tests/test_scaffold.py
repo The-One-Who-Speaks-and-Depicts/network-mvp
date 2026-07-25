@@ -1548,13 +1548,36 @@ class ScaffoldTests(unittest.TestCase):
         command = DockerRunner(image_name="network-mvp:test").build_command(config)
 
         self.assertEqual(command[0:3], ["docker", "run", "--rm"])
+        self.assertIn("--add-host", command)
+        self.assertIn("host.docker.internal:host-gateway", command)
         self.assertIn("NETWORK_MVP_INPUT_DIR=/data/input", command)
         self.assertIn("NETWORK_MVP_OUTPUT_DIR=/data/output", command)
-        self.assertIn("NETWORK_MVP_LMSTUDIO_BASE_URL=http://127.0.0.1:1234/v1", command)
+        self.assertIn(
+            "NETWORK_MVP_LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1",
+            command,
+        )
         self.assertIn("NETWORK_MVP_MODEL_NAME=local-model", command)
         self.assertIn("NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION=true", command)
         self.assertIn("NETWORK_MVP_ENABLE_DEBUG_LOGGING=false", command)
         self.assertIn("network-mvp:test", command)
+
+    def test_docker_runner_leaves_non_local_lmstudio_url_unchanged(self) -> None:
+        config = AppConfig.from_mapping(
+            {
+                "input_dir": "./data",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://lmstudio.internal:1234/v1",
+                "model_name": "local-model",
+            }
+        )
+
+        command = DockerRunner(image_name="network-mvp:test").build_command(config)
+
+        self.assertNotIn("--add-host", command)
+        self.assertIn(
+            "NETWORK_MVP_LMSTUDIO_BASE_URL=http://lmstudio.internal:1234/v1",
+            command,
+        )
 
     def test_docker_runner_builds_image_before_run(self) -> None:
         config = AppConfig.from_mapping(
@@ -1729,7 +1752,7 @@ class ScaffoldTests(unittest.TestCase):
         self.assertIsInstance(defaults, UiDefaults)
         self.assertEqual(defaults.input_dir, "")
         self.assertEqual(defaults.output_dir, "./output")
-        self.assertEqual(defaults.lmstudio_base_url, "http://127.0.0.1:1234/v1")
+        self.assertEqual(defaults.lmstudio_base_url, "http://host.docker.internal:1234/v1")
         self.assertEqual(defaults.model_name, "")
 
     def test_ui_run_handler_accepts_valid_inputs(self) -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import subprocess
+from urllib.parse import urlsplit, urlunsplit
 
 from app.config import AppConfig
 
@@ -27,31 +28,39 @@ class DockerRunner:
         self.project_root = Path(__file__).resolve().parents[2]
 
     def build_command(self, config: AppConfig) -> list[str]:
-        return [
+        lmstudio_base_url = self._container_base_url(config.lmstudio_base_url)
+        command = [
             "docker",
             "run",
             "--rm",
-            "-v",
-            f"{config.input_dir.resolve()}:/data/input",
-            "-v",
-            f"{config.output_dir.resolve()}:/data/output",
-            "-e",
-            "NETWORK_MVP_INPUT_DIR=/data/input",
-            "-e",
-            "NETWORK_MVP_OUTPUT_DIR=/data/output",
-            "-e",
-            f"NETWORK_MVP_LMSTUDIO_BASE_URL={config.lmstudio_base_url}",
-            "-e",
-            f"NETWORK_MVP_MODEL_NAME={config.model_name}",
-            "-e",
-            (
-                "NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION="
-                f"{str(config.enable_semantic_annotation).lower()}"
-            ),
-            "-e",
-            f"NETWORK_MVP_ENABLE_DEBUG_LOGGING={str(config.enable_debug_logging).lower()}",
-            self.image_name,
         ]
+        if lmstudio_base_url != config.lmstudio_base_url:
+            command.extend(["--add-host", "host.docker.internal:host-gateway"])
+        command.extend(
+            [
+                "-v",
+                f"{config.input_dir.resolve()}:/data/input",
+                "-v",
+                f"{config.output_dir.resolve()}:/data/output",
+                "-e",
+                "NETWORK_MVP_INPUT_DIR=/data/input",
+                "-e",
+                "NETWORK_MVP_OUTPUT_DIR=/data/output",
+                "-e",
+                f"NETWORK_MVP_LMSTUDIO_BASE_URL={lmstudio_base_url}",
+                "-e",
+                f"NETWORK_MVP_MODEL_NAME={config.model_name}",
+                "-e",
+                (
+                    "NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION="
+                    f"{str(config.enable_semantic_annotation).lower()}"
+                ),
+                "-e",
+                f"NETWORK_MVP_ENABLE_DEBUG_LOGGING={str(config.enable_debug_logging).lower()}",
+                self.image_name,
+            ]
+        )
+        return command
 
     def build_image_command(self) -> list[str]:
         return ["docker", "build", "-t", self.image_name, "."]
@@ -75,6 +84,13 @@ class DockerRunner:
             stdout=completed.stdout,
             stderr=completed.stderr,
         )
+
+    def _container_base_url(self, base_url: str) -> str:
+        parsed = urlsplit(base_url)
+        if parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            return base_url
+        netloc = parsed.netloc.replace(parsed.hostname, "host.docker.internal", 1)
+        return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 
     def _build_image(self) -> DockerRunResult | None:
         build_command = self.build_image_command()
