@@ -44,7 +44,7 @@ class LemmatizationService:
             prompt = prompt_template.format(text=normalized_file.normalized_text)
             try:
                 response = self.llm_client.prompt(prompt)
-                lemma_text = self._sanitize_output(response.text)
+                lemma_text = sanitize_output(response.text)
                 if not lemma_text:
                     raise ValueError("empty lemmatization output")
             except (LlmClientError, ValueError) as error:
@@ -66,9 +66,6 @@ class LemmatizationService:
             )
 
         return lemmatized_files
-
-    def _sanitize_output(self, text: str) -> str:
-        return sanitize_output(text)
 
     def _write_malformed_log(
         self,

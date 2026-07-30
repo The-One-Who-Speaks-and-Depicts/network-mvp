@@ -57,7 +57,7 @@ class NormalizationService:
             prompt = prompt_template.format(text=source_file.text)
             try:
                 response = self.llm_client.prompt(prompt)
-                normalized_text = self._sanitize_output(response.text)
+                normalized_text = sanitize_output(response.text)
                 if not normalized_text:
                     raise ValueError("empty normalization output")
             except (LlmClientError, ValueError) as error:
@@ -83,9 +83,6 @@ class NormalizationService:
             )
 
         return normalized_files
-
-    def _sanitize_output(self, text: str) -> str:
-        return sanitize_output(text)
 
     def _write_malformed_log(
         self,
