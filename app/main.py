@@ -29,7 +29,8 @@ def _emit_progress(
 ) -> None:
     print(
         f"PROGRESS\tstage={stage}\tcompleted={completed}\ttotal={total}\t"
-        f"status={status}\tmessage={message}"
+        f"status={status}\tmessage={message}",
+        flush=True,
     )
 
 
@@ -110,9 +111,15 @@ def main() -> None:
         stage="normalization",
         completed=len(normalized_files),
         total=total_files,
-        status="completed",
-        message="Normalization finished",
+        status="completed" if normalized_files else "failed",
+        message=(
+            f"Normalization finished; omitted {total_files - len(normalized_files)} document(s)"
+            if len(normalized_files) < total_files
+            else "Normalization finished"
+        ),
     )
+    if not normalized_files:
+        raise SystemExit("Normalization produced no usable documents; aborting run.")
 
     lemmatized_files = LemmatizationService(llm_client).lemmatize_files(
         normalized_files,
@@ -122,9 +129,15 @@ def main() -> None:
         stage="lemmatization",
         completed=len(lemmatized_files),
         total=total_files,
-        status="completed",
-        message="Lemmatization finished",
+        status="completed" if lemmatized_files else "failed",
+        message=(
+            f"Lemmatization finished; omitted {total_files - len(lemmatized_files)} document(s)"
+            if len(lemmatized_files) < total_files
+            else "Lemmatization finished"
+        ),
     )
+    if not lemmatized_files:
+        raise SystemExit("Lemmatization produced no usable documents; aborting run.")
 
     source_text_by_file = {
         source_file.filename: source_file.text
@@ -136,11 +149,19 @@ def main() -> None:
     )
     _emit_progress(
         stage="entity_extraction",
-        completed=len(lemmatized_files),
+        completed=len(candidates),
         total=total_files,
-        status="completed",
-        message=f"Extracted {len(candidates)} candidate entities",
+        status="completed" if candidates else "failed",
+        message=(
+            f"Extracted {len(candidates)} candidate entities; omitted "
+            f"{len(lemmatized_files) - len({candidate.file_id for candidate in candidates})} "
+            "document(s)"
+            if len({candidate.file_id for candidate in candidates}) < len(lemmatized_files)
+            else f"Extracted {len(candidates)} candidate entities"
+        ),
     )
+    if not candidates:
+        raise SystemExit("Entity extraction produced no usable records; aborting run.")
 
     entities = EntityMergeService(llm_client).merge_candidates(candidates)
     edges = CooccurrenceService().build_edges(entities)

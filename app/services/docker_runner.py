@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import subprocess
 import sys
+from collections.abc import Callable
 from urllib.parse import urlsplit, urlunsplit
 
 from app.config import AppConfig
@@ -69,7 +70,11 @@ class DockerRunner:
     def build_image_command(self) -> list[str]:
         return ["docker", "build", "-t", self.image_name, "."]
 
-    def run(self, config: AppConfig) -> DockerRunResult:
+    def run(
+        self,
+        config: AppConfig,
+        output_callback: Callable[[str], None] | None = None,
+    ) -> DockerRunResult:
         input_error = validate_input_directory(config.input_dir)
         if input_error is not None:
             return DockerRunResult(
@@ -84,18 +89,44 @@ class DockerRunner:
             return build_result
 
         command = self.build_command(config)
-        completed = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        if output_callback is None:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            stdout, stderr = completed.stdout, completed.stderr
+            returncode = completed.returncode
+        else:
+            stdout, stderr, returncode = self._run_streaming(command, output_callback)
         return DockerRunResult(
             command=command,
-            returncode=completed.returncode,
-            stdout=completed.stdout,
-            stderr=completed.stderr,
+            returncode=returncode,
+            stdout=stdout,
+            stderr=stderr,
         )
+
+    def _run_streaming(
+        self,
+        command: list[str],
+        output_callback: Callable[[str], None],
+    ) -> tuple[str, str, int]:
+        with subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        ) as process:
+            stdout_lines: list[str] = []
+            assert process.stdout is not None
+            for line in process.stdout:
+                stdout_lines.append(line)
+                output_callback(line.rstrip("\n"))
+            stderr = process.stderr.read() if process.stderr is not None else ""
+            returncode = process.wait()
+        return "".join(stdout_lines), stderr, returncode
 
     def _should_use_host_network(self, base_url: str) -> bool:
         hostname = urlsplit(base_url).hostname

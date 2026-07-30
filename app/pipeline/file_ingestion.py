@@ -50,7 +50,9 @@ class FileIngestionService:
         return [
             SourceFile(
                 file_id=self._make_file_id(index),
-                filename=path.name,
+                # Basenames are not unique in a recursive corpus. Preserve
+                # the relative path as the provenance/source identifier.
+                filename=path.relative_to(input_dir).as_posix(),
                 source_path=path,
                 text=self._read_text(path),
             )

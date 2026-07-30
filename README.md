@@ -329,7 +329,6 @@ PROGRESS\tstage=<stage>\tcompleted=<n>\ttotal=<n>\tstatus=<state>\tmessage=<text
 Example scaffold output:
 
 ```text
-PROGRESS	stage=startup	completed=0	total=0	status=running	message=Container started
 PROGRESS	stage=scaffold	completed=0	total=0	status=completed	message=Scaffold run completed
 ```
 

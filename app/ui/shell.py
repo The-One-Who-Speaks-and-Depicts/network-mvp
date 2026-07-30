@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 
 from app.config import AppConfig, ConfigError
 from app.progress.reporting import ProgressReporter, ProgressState
@@ -32,6 +33,7 @@ def default_form_values() -> UiDefaults:
 def handle_run_request(
     form_values: dict[str, object],
     runner: DockerRunner | None = None,
+    output_callback: Callable[[str], None] | None = None,
 ) -> UiRunResponse:
     try:
         config = AppConfig.from_mapping(form_values)
@@ -39,7 +41,10 @@ def handle_run_request(
         return UiRunResponse(config=None, status_message=str(error))
 
     active_runner = runner or DockerRunner()
-    result = active_runner.run(config)
+    if output_callback is None:
+        result = active_runner.run(config)
+    else:
+        result = active_runner.run(config, output_callback=output_callback)
 
     progress_state = ProgressReporter().from_result(
         stdout=result.stdout,

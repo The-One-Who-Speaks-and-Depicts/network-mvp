@@ -1,10 +1,10 @@
 ## Summary
 
-- 
+-
 
 ## Target issue(s)
 
-- 
+-
 
 ## Checklist
 

@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from collections.abc import Callable
 from typing import TypedDict
 from unittest import mock
 
@@ -58,7 +59,11 @@ class FakeRunner(DockerRunner):
         self.result = result
         self.received_config: AppConfig | None = None
 
-    def run(self, config: AppConfig) -> DockerRunResult:
+    def run(
+        self,
+        config: AppConfig,
+        output_callback: Callable[[str], None] | None = None,
+    ) -> DockerRunResult:
         self.received_config = config
         return self.result
 
