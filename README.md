@@ -167,7 +167,7 @@ Current UI provides:
 - status area with container stdout/stderr
 - current stage display
 - file-count progress display where backend reports counts
-- clear completion/failure state
+- clear completion, completed-with-omissions, or failure state
 
 ### 4. Run sample flow
 
@@ -319,6 +319,12 @@ Current service supports:
 - file-count progress extraction where reported
 - completion/failure state derivation
 - UI display of stage, counts, and final state
+
+The final state is `completed` when every source document reaches extraction,
+`completed_with_omissions` when the graph is exported but one or more documents
+were omitted, and `failed` when a required stage produces no usable records.
+The UI presents completed-with-omissions runs as warnings and includes the
+omitted filenames in the final progress message.
 
 Progress line format:
 

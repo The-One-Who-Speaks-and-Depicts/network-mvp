@@ -350,6 +350,35 @@ class RuntimeTests(ScaffoldTestBase):
             self.fail("expected progress state")
         self.assertEqual(progress_state.current_stage, "completed")
 
+    def test_ui_run_handler_warns_for_completed_run_with_omissions(self) -> None:
+        runner = FakeRunner(
+            DockerRunResult(
+                command=["docker", "run"],
+                returncode=0,
+                stdout=(
+                    "PROGRESS\tstage=graph_export\tcompleted=1\ttotal=2\t"
+                    "status=completed_with_omissions\tmessage=omitted b.txt\n"
+                ),
+                stderr="",
+            )
+        )
+
+        response = handle_run_request(
+            {
+                "input_dir": "./data",
+                "output_dir": "./output",
+                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                "model_name": "local-model",
+            },
+            runner=runner,
+        )
+
+        self.assertEqual(response.status_message, "Container run completed with omissions.")
+        self.assertIsNotNone(response.progress_state)
+        if response.progress_state is None:
+            self.fail("expected progress state")
+        self.assertEqual(response.progress_state.status, "completed_with_omissions")
+
     def test_ui_run_handler_returns_clear_error_for_invalid_inputs(self) -> None:
         response = handle_run_request(
             {
@@ -602,3 +631,28 @@ class RuntimeTests(ScaffoldTestBase):
             self.assertTrue(
                 (output_dir / "logs" / "normalization" / "text_0001_003.003.txt.log").is_file()
             )
+
+    def test_main_entrypoint_aborts_when_normalization_has_no_records(self) -> None:
+        fake_client = FakeLlmClient(responses=[" "])
+
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            input_dir = Path(input_temp_dir)
+            (input_dir / "a.txt").write_text("one", encoding="utf-8")
+            with (
+                mock.patch("app.main.LlmClient.from_config", return_value=fake_client),
+                mock.patch.dict(
+                    "os.environ",
+                    {
+                        "NETWORK_MVP_INPUT_DIR": str(input_dir),
+                        "NETWORK_MVP_OUTPUT_DIR": output_temp_dir,
+                        "NETWORK_MVP_LMSTUDIO_BASE_URL": "http://127.0.0.1:1234/v1",
+                        "NETWORK_MVP_MODEL_NAME": "local-model",
+                    },
+                    clear=True,
+                ),
+            ):
+                with self.assertRaisesRegex(SystemExit, "Normalization produced no usable"):
+                    app_main.main()

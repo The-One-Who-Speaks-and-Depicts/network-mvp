@@ -62,7 +62,13 @@ def main() -> None:
             output_callback=show_progress,
         )
         if response.result and response.result.succeeded:
-            st.success(response.status_message)
+            if (
+                response.progress_state
+                and response.progress_state.status == "completed_with_omissions"
+            ):
+                st.warning(response.status_message)
+            else:
+                st.success(response.status_message)
         else:
             st.error(response.status_message)
 

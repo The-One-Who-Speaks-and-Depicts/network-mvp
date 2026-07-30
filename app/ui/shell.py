@@ -53,6 +53,13 @@ def handle_run_request(
     )
 
     if result.succeeded:
+        if progress_state.status == "completed_with_omissions":
+            return UiRunResponse(
+                config=config,
+                status_message="Container run completed with omissions.",
+                result=result,
+                progress_state=progress_state,
+            )
         return UiRunResponse(
             config=config,
             status_message="Container run completed successfully.",

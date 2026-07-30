@@ -83,7 +83,7 @@ UI currently shows:
 
 - current stage
 - file counts when backend reports them
-- completion or failure state
+- completion, completed-with-omissions, or failure state
 - container stdout/stderr
 
 The backend emits progress lines for each configured stage. A no-configuration smoke run emits:
