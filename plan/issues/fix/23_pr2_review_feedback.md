@@ -13,10 +13,11 @@ Follow-up review of PR #2, “release: promote dev to main”. The review focuse
 - Measure application coverage with `--source=app` so tests do not inflate the quality gate.
 - Upgrade GitHub Actions checkout steps to `actions/checkout@v5`.
 - Make `NETWORK_MVP_ENABLE_DEBUG_LOGGING` configure application logging and document that messages appear on container stderr.
+- Split the monolithic scaffold test module into focused preprocessing, entity/relation, graph/progress, runtime, and documentation suites with shared fixtures in `tests/test_support.py`.
 
 ## Validation
 
-The affected runtime paths have regression tests for invalid corpus directories and invalid relation directions. The standard compile, unit-test, coverage, pylint, mypy, and diff checks must pass before merge.
+The affected runtime paths have regression tests for invalid corpus directories and invalid relation directions. The standard compile, unit-test, coverage, pylint, mypy, and diff checks must pass before merge. Test discovery now runs 71 tests across focused modules.
 
 ## Remote PR description
 
