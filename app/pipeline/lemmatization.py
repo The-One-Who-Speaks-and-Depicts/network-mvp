@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.pipeline.normalization import NormalizedFile
+from app.pipeline.text_utils import sanitize_output
 from app.services.llm_client import LlmClientError, PromptingClient
 
 
@@ -43,14 +44,17 @@ class LemmatizationService:
             prompt = prompt_template.format(text=normalized_file.normalized_text)
             try:
                 response = self.llm_client.prompt(prompt)
-                lemma_text = self._sanitize_output(response.text)
+                lemma_text = sanitize_output(response.text)
                 if not lemma_text:
                     raise ValueError("empty lemmatization output")
             except (LlmClientError, ValueError) as error:
+                # One malformed file should be isolated; later corpus files still run.
                 self._write_malformed_log(malformed_log_dir, normalized_file, str(error))
                 continue
 
-            output_path = lemma_dir / f"{normalized_file.file_id}_{normalized_file.filename}"
+            output_path = lemma_dir.joinpath(
+                f"{normalized_file.file_id}_{normalized_file.filename}"
+            )
             output_path.write_text(lemma_text, encoding="utf-8")
             lemmatized_files.append(
                 LemmatizedFile(
@@ -62,9 +66,6 @@ class LemmatizationService:
             )
 
         return lemmatized_files
-
-    def _sanitize_output(self, text: str) -> str:
-        return " ".join(text.split())
 
     def _write_malformed_log(
         self,

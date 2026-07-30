@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import logging
 from pathlib import Path
 
 from app.pipeline.entities import CandidateEntity
 from app.services.llm_client import LlmClientError, PromptingClient
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -100,7 +104,12 @@ class EntityMergeService:
         )
         try:
             response = self.llm_client.prompt(prompt)
-        except LlmClientError:
+        except LlmClientError as error:
+            LOGGER.warning(
+                "Gender inference failed for canonical_name=%s; using heuristic: %s",
+                canonical_name,
+                error,
+            )
             return heuristic_gender
 
         parsed_gender = self._parse_gender_response(response.text)
@@ -109,7 +118,7 @@ class EntityMergeService:
         return parsed_gender
 
     def _infer_gender_from_aliases(self, aliases: set[str]) -> str:
-        inferred = "not-inferred"
+        inferred = "not_inferred"
         for alias in sorted(aliases):
             inferred = self._merge_gender(inferred, self._infer_gender_from_name(alias))
         return inferred
@@ -121,15 +130,15 @@ class EntityMergeService:
         if lowered.endswith(("а", "ѧ", "ꙗ")):
             return "female"
         if lowered.endswith(("ъ", "ь")):
-            return "not-inferred"
+            return "not_inferred"
         if lowered:
             return "unresolved"
-        return "not-inferred"
+        return "not_inferred"
 
     def _parse_gender_response(self, response_text: str) -> str | None:
         for raw_line in response_text.splitlines():
             label = raw_line.strip().lower().split("\t", 1)[0].strip()
-            if label in {"female", "ambiguous", "unresolved", "not-inferred"}:
+            if label in {"female", "ambiguous", "unresolved", "not_inferred"}:
                 return label
         return None
 
@@ -142,4 +151,4 @@ class EntityMergeService:
             return "female"
         if "unresolved" in {existing, incoming}:
             return "unresolved"
-        return "not-inferred"
+        return "not_inferred"

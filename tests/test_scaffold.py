@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from typing import TypedDict
 from unittest import mock
 
 from app import main as app_main
@@ -29,6 +30,19 @@ from app.pipeline.normalization import (
 from app.services.docker_runner import DockerRunResult, DockerRunner
 from app.services.llm_client import LlmClient, LlmClientError, LlmResponse
 from app.ui.shell import UiDefaults, UiRunResponse, default_form_values, handle_run_request
+
+
+class TinyPipelineResult(TypedDict, total=False):
+    source_files: list[SourceFile]
+    normalized_files: list[NormalizedFile]
+    lemmatized_files: list[LemmatizedFile]
+    candidates: list[CandidateEntity]
+    entities: list[CanonicalEntity]
+    edges: list[CooccurrenceEdge]
+    semantic_edges: list[SemanticEdge]
+    payload: dict[str, list[dict[str, object]]]
+    html: str
+    html_exists: bool
 
 
 class FakeRunner(DockerRunner):
@@ -119,9 +133,9 @@ class ScaffoldTests(unittest.TestCase):
             ),
         }
 
-    def _run_tiny_corpus_pipeline(self) -> dict[str, object]:
+    def _run_tiny_corpus_pipeline(self) -> TinyPipelineResult:
         clients = self._tiny_corpus_clients()
-        result: dict[str, object] = {}
+        result: TinyPipelineResult = {}
 
         with (
             tempfile.TemporaryDirectory() as input_temp_dir,
@@ -812,7 +826,7 @@ class ScaffoldTests(unittest.TestCase):
 
         self.assertEqual(merged[0].gender_inference, "unresolved")
         self.assertEqual(merged[1].gender_inference, "female")
-        self.assertEqual(merged[2].gender_inference, "not-inferred")
+        self.assertEqual(merged[2].gender_inference, "not_inferred")
 
     def test_entity_merge_prefers_female_over_weaker_heuristics(self) -> None:
         merged = EntityMergeService().merge_candidates(
@@ -841,8 +855,14 @@ class ScaffoldTests(unittest.TestCase):
                 CandidateEntity(
                     file_id="text_0001",
                     filename="001.txt",
-                    name="анна<tab>в лѣто 6519. преставися раба божиа анна, цесарица володимиря.",
-                    evidence="анна<tab>в лѣто 6519. преставися раба божиа анна, цесарица володимиря.",
+                    name=(
+                        "анна<tab>в лѣто 6519. преставися раба божиа анна, "
+                        "цесарица володимиря."
+                    ),
+                    evidence=(
+                        "анна<tab>в лѣто 6519. преставися раба божиа анна, "
+                        "цесарица володимиря."
+                    ),
                 ),
             ]
         )
@@ -918,14 +938,14 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Грикша",),
                 source_files=("003.003.txt", "004.004.txt"),
                 evidence=("грикши",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="ѥсифъ",
                 aliases=("Ѥсифъ",),
                 source_files=("003.003.txt",),
                 evidence=("ѥсифу",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="федосьꙗ",
@@ -939,7 +959,7 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Петръ",),
                 source_files=("004.004.txt",),
                 evidence=("петра",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
         ]
         edges = CooccurrenceService().build_edges(entities)
@@ -962,7 +982,7 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Грикша", "грикша"),
                 source_files=("003.003.txt",),
                 evidence=("грикши", "грикша"),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             )
         ]
         edges = CooccurrenceService().build_edges(entities)
@@ -976,14 +996,14 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Грикша",),
                 source_files=("003.003.txt", "004.004.txt"),
                 evidence=("грикши",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="ѥсифъ",
                 aliases=("Ѥсифъ",),
                 source_files=("003.003.txt",),
                 evidence=("ѥсифу",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="федосьꙗ",
@@ -997,7 +1017,7 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Петръ",),
                 source_files=("004.004.txt",),
                 evidence=("петра",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="юрга",
@@ -1143,14 +1163,14 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Грикша",),
                 source_files=("003.003.txt", "004.004.txt"),
                 evidence=("грикши",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="ѥсифъ",
                 aliases=("Ѥсифъ",),
                 source_files=("003.003.txt",),
                 evidence=("ѥсифу",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="федосьꙗ",
@@ -1206,7 +1226,7 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Грикша",),
                 source_files=("003.003.txt",),
                 evidence=("грикши",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             )
         ]
         result = GraphBuilder().build(entities, [])
@@ -1222,14 +1242,14 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Грикша",),
                 source_files=("003.003.txt", "004.004.txt"),
                 evidence=("грикши",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="ѥсифъ",
                 aliases=("Ѥсифъ",),
                 source_files=("003.003.txt",),
                 evidence=("ѥсифу",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="федосьꙗ",
@@ -1243,7 +1263,7 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Петръ",),
                 source_files=("004.004.txt",),
                 evidence=("петра",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
         ]
         edges = [
@@ -1292,7 +1312,7 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Грикша",),
                 source_files=("003.003.txt", "004.004.txt"),
                 evidence=("грикши",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="федосьꙗ",
@@ -1338,7 +1358,7 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Кии",),
                 source_files=("003.003.txt",),
                 evidence=("кии",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="лыбедь<tab>бяше три брата: единому имя кии, второму",
@@ -1379,14 +1399,14 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Грикша",),
                 source_files=("003.003.txt", "004.004.txt"),
                 evidence=("грикши",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="ѥсифъ",
                 aliases=("Ѥсифъ",),
                 source_files=("003.003.txt",),
                 evidence=("ѥсифу",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="федосьꙗ",
@@ -1506,7 +1526,7 @@ class ScaffoldTests(unittest.TestCase):
                 aliases=("Грикша",),
                 source_files=("003.003.txt",),
                 evidence=("грикши",),
-                gender_inference="not-inferred",
+                gender_inference="not_inferred",
             ),
             CanonicalEntity(
                 canonical_name="федосьꙗ",
@@ -1817,7 +1837,10 @@ class ScaffoldTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             LlmClientError,
-            "LLM request failed\\. base_url=http://127.0.0.1:1234/v1 model=local-model details=RuntimeError",
+            (
+                "LLM request failed\\. base_url=http://127.0.0.1:1234/v1 "
+                "model=local-model details=RuntimeError"
+            ),
         ):
             client.prompt("ping")
 
@@ -1923,7 +1946,7 @@ class ScaffoldTests(unittest.TestCase):
                 "княгиня грикша писать к ѥсифъ",
                 "Княгиня Грикша\tкнягиня грикша\nѤсифъ\tѥсифу",
                 "female",
-                "not-inferred",
+                "not_inferred",
                 "not stated\t\t0.2",
             ]
         )
@@ -1966,6 +1989,29 @@ class ScaffoldTests(unittest.TestCase):
             self.assertTrue((output_dir / "graph.json").is_file())
             self.assertTrue((output_dir / "graph.html").is_file())
 
+    def test_main_entrypoint_rejects_invalid_environment(self) -> None:
+        with (
+            mock.patch.dict(
+                "os.environ",
+                {
+                    "NETWORK_MVP_INPUT_DIR": "input",
+                    "NETWORK_MVP_OUTPUT_DIR": "output",
+                    "NETWORK_MVP_LMSTUDIO_BASE_URL": "http://localhost:1234/v1",
+                    "NETWORK_MVP_MODEL_NAME": "local-model",
+                    "NETWORK_MVP_ENABLE_DEBUG_LOGGING": "maybe",
+                },
+                clear=True,
+            ),
+            mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
+        ):
+            with self.assertRaisesRegex(
+                SystemExit,
+                "Invalid boolean configuration value for enable_debug_logging",
+            ):
+                app_main.main()
+
+        self.assertIn("Configuration error:", stderr.getvalue())
+
     def test_main_entrypoint_fails_fast_on_first_normalization_llm_error(self) -> None:
         fake_client = FakeLlmClient(error=LlmClientError("connection refused"))
 
@@ -2003,7 +2049,10 @@ class ScaffoldTests(unittest.TestCase):
 
             stdout = buffer.getvalue()
             self.assertIn("PROGRESS\tstage=ingestion\tcompleted=1\ttotal=1", stdout)
-            self.assertIn("PROGRESS\tstage=normalization\tcompleted=0\ttotal=1\tstatus=failed", stdout)
+            self.assertIn(
+                "PROGRESS\tstage=normalization\tcompleted=0\ttotal=1\tstatus=failed",
+                stdout,
+            )
             self.assertNotIn("PROGRESS\tstage=lemmatization", stdout)
             self.assertIn("Normalization failed on first file", str(error_context.exception))
             self.assertTrue(

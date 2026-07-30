@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 
 from app.pipeline.lemmatization import LemmatizedFile
 from app.services.llm_client import LlmClientError, PromptingClient
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -47,7 +51,13 @@ class EntityExtractionService:
             )
             try:
                 response = self.llm_client.prompt(prompt)
-            except LlmClientError:
+            except LlmClientError as error:
+                LOGGER.warning(
+                    "Entity extraction failed for file_id=%s filename=%s: %s",
+                    lemmatized_file.file_id,
+                    lemmatized_file.filename,
+                    error,
+                )
                 continue
 
             candidates.extend(self._parse_response(lemmatized_file, response.text))

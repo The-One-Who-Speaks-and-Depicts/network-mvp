@@ -9,6 +9,8 @@ import sys
 import streamlit as st
 
 if __package__ in {None, ""}:
+    # Direct ``streamlit run app/ui/app.py`` execution has no package context;
+    # add the repository root so the sibling application modules remain importable.
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     shell_module = import_module("app.ui.shell")
 else:
