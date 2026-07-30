@@ -1,8 +1,7 @@
 """Entities pipeline tests."""
 
 # Focused suites intentionally share realistic setup snippets.
-# pylint: disable=duplicate-code
-
+# pylint: disable=duplicate-code  # Keep entity fixtures local to entity/relation assertions.
 from tests.test_support import (
     CandidateEntity,
     CanonicalEntity,

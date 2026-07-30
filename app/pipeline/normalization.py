@@ -57,18 +57,28 @@ class NormalizationService:
             prompt = prompt_template.format(text=source_file.text)
             try:
                 response = self.llm_client.prompt(prompt)
-                normalized_text = sanitize_output(response.text)
-                if not normalized_text:
-                    raise ValueError("empty normalization output")
-            except (LlmClientError, ValueError) as error:
+            except LlmClientError as error:
                 log_path = self._write_malformed_log(
                     malformed_log_dir,
                     source_file,
                     prompt=prompt,
                     error=error,
                 )
-                if index == 0 and isinstance(error, LlmClientError):
+                if index == 0:
                     raise NormalizationStageError(source_file, log_path, str(error)) from error
+                continue
+
+            try:
+                normalized_text = sanitize_output(response.text)
+                if not normalized_text:
+                    raise ValueError("empty normalization output")
+            except ValueError as error:
+                log_path = self._write_malformed_log(
+                    malformed_log_dir,
+                    source_file,
+                    prompt=prompt,
+                    error=error,
+                )
                 continue
 
             output_path = normalized_dir / f"{source_file.file_id}_{source_file.source_path.name}"
@@ -92,6 +102,9 @@ class NormalizationService:
         prompt: str,
         error: Exception,
     ) -> Path:
+        error_category = (
+            "llm_request" if isinstance(error, LlmClientError) else "invalid_model_output"
+        )
         log_path = log_dir / f"{source_file.file_id}_{source_file.source_path.name}.log"
         timestamp = datetime.now(timezone.utc).isoformat()
         log_path.write_text(
@@ -103,6 +116,7 @@ class NormalizationService:
                     f"filename: {source_file.filename}",
                     f"source_path: {source_file.source_path}",
                     f"error_type: {type(error).__name__}",
+                    f"error_category: {error_category}",
                     f"error_message: {error}",
                     "traceback:",
                     "".join(

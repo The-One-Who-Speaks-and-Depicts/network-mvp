@@ -1,8 +1,7 @@
 """Graph pipeline tests."""
 
 # Focused suites intentionally share realistic setup snippets.
-# pylint: disable=duplicate-code
-
+# pylint: disable=duplicate-code  # Keep graph fixtures local to graph assertions for readability.
 from tests.test_support import (
     CanonicalEntity,
     DockerRunResult,

@@ -1,8 +1,7 @@
 """Runtime service and integration tests."""
 
 # Focused suites intentionally share realistic setup snippets.
-# pylint: disable=duplicate-code
-
+# pylint: disable=duplicate-code  # Keep runtime scenarios readable and independently configurable.
 import io
 from pathlib import Path
 import subprocess

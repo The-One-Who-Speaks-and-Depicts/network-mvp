@@ -11,13 +11,17 @@ from app.config import AppConfig
 
 
 class LlmClientError(RuntimeError):
-    """Raised when LLM request fails or response is unusable."""
+    """Operational provider/request/response failure, not invalid caller input."""
 
 
 class PromptingClient(Protocol):
     """Minimal interface required by pipeline stages and their test doubles."""
 
     def prompt(self, prompt_text: str, system_prompt: str | None = None) -> "LlmResponse":
+        """Return a response for a prompt; pipeline clients and test doubles implement this."""
+
+        # Protocol stubs use an ellipsis to provide a signature without runtime behavior.
+        # pylint: disable=unnecessary-ellipsis
         ...
 
 

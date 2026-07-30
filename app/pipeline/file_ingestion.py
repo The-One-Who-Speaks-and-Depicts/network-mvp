@@ -13,7 +13,7 @@ class InputDirectoryError(ValueError):
 
 
 def validate_input_directory(input_dir: Path) -> str | None:
-    """Return a user-facing error when a corpus directory is not readable."""
+    """Return a user-facing error for missing or structurally empty corpus dirs."""
 
     if not input_dir.is_dir():
         return f"Input directory does not exist or is not a directory: {input_dir}"
@@ -21,12 +21,6 @@ def validate_input_directory(input_dir: Path) -> str | None:
     text_files = sorted(path for path in input_dir.rglob("*.txt") if path.is_file())
     if not text_files:
         return f"Input directory contains no .txt files: {input_dir}"
-
-    for text_file in text_files:
-        try:
-            text_file.read_text(encoding="utf-8")
-        except (OSError, UnicodeError) as error:
-            return f"Could not read UTF-8 corpus file {text_file}: {error}"
     return None
 
 
@@ -62,9 +56,13 @@ class FileIngestionService:
     def _read_text(self, path: Path) -> str:
         try:
             return path.read_text(encoding="utf-8")
-        except (OSError, UnicodeError) as error:
+        except OSError as error:
             raise InputDirectoryError(
-                f"Could not read UTF-8 corpus file {path}: {error}"
+                f"Could not access corpus file {path}: {error}"
+            ) from error
+        except UnicodeError as error:
+            raise InputDirectoryError(
+                f"Corpus file is not valid UTF-8: {path}: {error}"
             ) from error
 
     def export_original_logs(
@@ -77,9 +75,14 @@ class FileIngestionService:
 
         for source_file in source_files:
             log_path = log_dir / f"{source_file.file_id}_{source_file.source_path.name}"
-            log_path.write_text(source_file.text, encoding="utf-8")
+            self._write_original_text_artifact(log_path, source_file.text)
 
         return log_dir
+
+    def _write_original_text_artifact(self, path: Path, text: str) -> None:
+        """Write exact source text; this is provenance export, not event logging."""
+
+        path.write_text(text, encoding="utf-8")
 
     def ingest(self, config: AppConfig) -> list[SourceFile]:
         source_files = self.load_source_files(config.input_dir)
