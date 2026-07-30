@@ -33,6 +33,7 @@ ALLOWED_RELATIONS = {
     "grandson of",
     "not stated",
 }
+ALLOWED_DIRECTIONS = {"source_to_target", "target_to_source"}
 
 
 @dataclass(frozen=True)
@@ -164,6 +165,12 @@ class SemanticRelationService:
 
         if relation not in ALLOWED_RELATIONS:
             return "not stated", None, 0.0
+        if relation == "not stated":
+            if direction is not None:
+                raise ValueError("invalid semantic annotation direction")
+            return relation, None, 0.0
+        if direction not in ALLOWED_DIRECTIONS:
+            raise ValueError("invalid semantic annotation direction")
 
         return relation, direction, confidence
 

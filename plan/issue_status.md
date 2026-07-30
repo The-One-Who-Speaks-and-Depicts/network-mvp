@@ -35,3 +35,4 @@ Remediation work is tracked separately from the original implementation sequence
 
 - [x] 21 PR #2 review iteration 1 remediation (`plan/issues/fix/21_pr2_review_iteration_1.md`)
 - [x] 22 PR #22 CI remediation
+- [x] 23 PR #2 follow-up review remediation (`plan/issues/fix/23_pr2_review_feedback.md`)

@@ -9,6 +9,7 @@ import sys
 from urllib.parse import urlsplit, urlunsplit
 
 from app.config import AppConfig
+from app.pipeline.file_ingestion import validate_input_directory
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,14 @@ class DockerRunner:
         return ["docker", "build", "-t", self.image_name, "."]
 
     def run(self, config: AppConfig) -> DockerRunResult:
+        input_error = validate_input_directory(config.input_dir)
+        if input_error is not None:
+            return DockerRunResult(
+                command=[],
+                returncode=1,
+                stdout="",
+                stderr=input_error,
+            )
         config.output_dir.mkdir(parents=True, exist_ok=True)
         build_result = self._build_image()
         if build_result is not None:

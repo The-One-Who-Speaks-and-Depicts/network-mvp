@@ -1,6 +1,6 @@
 # Female Character Network Visualizer
 
-Current status: scaffolded local workflow with documented setup, service-layer preprocessing, lemma-based extraction/annotation, graph export, progress reporting, validation coverage, and operator documentation.
+Current status: local Docker-backed workflow with preprocessing, lemma-based extraction/annotation, graph export, progress reporting, validation coverage, and operator documentation.
 
 This repository currently contains:
 
@@ -25,11 +25,11 @@ This repository currently contains:
 - progress reporting
 - smoke and schema validation
 
-It does **not yet** contain full text-processing pipeline. Current preprocessing, extraction, edge-generation, semantic-annotation, graph-construction, export, progress-reporting, and smoke/schema validation stages exist as service layers, but container entrypoint still runs scaffold output only.
+The configured container entrypoint runs the end-to-end service pipeline. Running it without configuration is reserved for the CI scaffold smoke check.
 
 ## Version
 
-Current development version: `0.18.0-dev`
+Current development version: `0.22.0-dev`
 
 ## Requirements
 
@@ -38,7 +38,7 @@ To run locally, you need:
 - Python 3.12
 - Docker
 - Python dependencies from `requirements.txt`
-- optional: LM Studio in server mode for local LLM-backed stages
+- LM Studio in server mode for normalization, lemmatization, extraction, and semantic annotation
 
 Install Python dependencies:
 
@@ -96,7 +96,7 @@ export NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION=true
 export NETWORK_MVP_ENABLE_DEBUG_LOGGING=false
 ```
 
-Note: current scaffold entrypoint does not consume these values yet. Config model and loaders are ready for next integration steps.
+The four path/model values are required for a real pipeline run. The two boolean values are optional and default to semantic annotation enabled and debug logging disabled. If any runtime variable is supplied, invalid or incomplete configuration fails with a clear error instead of entering scaffold mode.
 
 ## LLM client
 
@@ -123,11 +123,11 @@ From repository root:
 python3 -m app.main
 ```
 
-Expected output:
+With no environment variables set, the command runs the scaffold smoke mode and emits:
 
 ```text
 Female Character Network Visualizer scaffold
-Start local UI with: streamlit run app/ui/app.py
+PROGRESS	stage=scaffold	completed=0	total=0	status=completed	message=Scaffold run completed
 ```
 
 ## Quick start
@@ -142,8 +142,6 @@ Expected corpus shape:
 - filenames retained as provenance in outputs
 
 ### 2. Start LM Studio
-
-When running local LLM-backed stages later:
 
 - open LM Studio
 - load local model
@@ -182,7 +180,7 @@ Enter:
 
 Press `Start run`.
 
-Current container entrypoint still scaffold-oriented, but service-layer flow and artifacts are covered by tests and runbook.
+The run builds the Docker image, mounts the selected corpus and output directories, executes all pipeline stages, and writes `graph.json`, `graph.html`, intermediate text, and logs to the output directory. Review the logs and graph manually before treating inferred relations or gender labels as scholarly conclusions.
 
 ## File ingestion
 
@@ -277,6 +275,8 @@ Current service supports:
 - allowed-label mapping to project schema
 - confidence parsing
 - `not stated` fallback on unknown labels or request failures
+
+Semantic direction values are explicit: `source_to_target` means the relation points from Entity A (`source`) to Entity B (`target`), while `target_to_source` means it points from Entity B to Entity A. A `not stated` relation has no direction.
 
 ## Graph construction and centrality
 
@@ -382,6 +382,7 @@ Human review still required after graph export.
 Review `graph.json` for:
 
 - edges with `semantic_relation` set to `not stated`
+- whether each directional relation uses the correct source/target interpretation
 - low-confidence semantic labels
 - over-merged entities
 - unresolved or conservative `gender_inference`
@@ -406,9 +407,8 @@ Expected human-in-loop cleanup:
 
 Current limitations:
 
-- full end-to-end container pipeline not wired yet
-- `app.main` still scaffold entrypoint
-- service-layer coverage stronger than runtime orchestration coverage
+- the LLM remains necessary for the configured normalization and extraction stages
+- service-layer coverage is stronger than runtime orchestration coverage
 - semantic relation extraction limited to fixed allowed schema
 - `not stated` output expected and intentionally preserved for manual cleanup
 - gender inference heuristic remains coarse and name-based
@@ -434,12 +434,11 @@ Run container:
 docker run --rm network-mvp:test
 ```
 
-Expected output:
+With no environment variables set, the container runs only its scaffold smoke mode and emits:
 
 ```text
 Female Character Network Visualizer scaffold
-Start local UI with: streamlit run app/ui/app.py
-UI launches Docker container for pipeline runs
+PROGRESS	stage=scaffold	completed=0	total=0	status=completed	message=Scaffold run completed
 ```
 
 ## Docker runner behavior
@@ -457,6 +456,8 @@ Current Docker runner passes environment variables into container:
 - `NETWORK_MVP_MODEL_NAME=...`
 - `NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION=...`
 - `NETWORK_MVP_ENABLE_DEBUG_LOGGING=...`
+
+When enabled, debug and warning messages are written to the container stderr shown in the UI.
 
 ## Docker permissions note
 
@@ -480,6 +481,7 @@ Current GitHub Actions pipeline checks:
 
 - Python source compiles
 - tests pass
+- application coverage is at least 80% (tests are not included in the coverage denominator)
 - `pylint` passes
 - `mypy` passes
 - no tracked Python cache artifacts
@@ -488,21 +490,6 @@ Current GitHub Actions pipeline checks:
 - PRs into `dev` update `VERSION`
 - PRs into `dev` update `plan/issue_status.md`
 - PRs into `dev` mark at least one issue as completed
-
-## Next expected capabilities
-
-## Runbook
-
-Operator notes:
-
-- `RUNBOOK.md`
-
-## Next expected capabilities
-
-Planned future steps:
-
-- full runtime pipeline wiring inside container entrypoint
-- deeper merge/coreference behavior from broader plan
 
 ## Main project document
 

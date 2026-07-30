@@ -2,14 +2,14 @@
 
 ## Goal
 
-Run local UI, validate local environment, inspect scaffolded pipeline outputs, and handle manual cleanup.
+Run the local UI, validate the environment, inspect pipeline outputs, and handle manual cleanup.
 
 ## Prerequisites
 
 - Python 3.12
 - Docker
 - Python dependencies from `requirements.txt`
-- optional: LM Studio in server mode for local LLM-backed stages
+- LM Studio in server mode for normalization, lemmatization, extraction, and semantic annotation
 
 Install dependencies:
 
@@ -75,7 +75,7 @@ Current service-layer pipeline order:
 8. graph build
 9. graph export
 
-Current container entrypoint remains scaffold-oriented. Full orchestration still partial.
+With valid configuration, the container entrypoint runs all nine stages listed above. It enters scaffold mode only when no runtime environment variables are supplied.
 
 ## Watch progress
 
@@ -86,7 +86,7 @@ UI currently shows:
 - completion or failure state
 - container stdout/stderr
 
-Current backend emits scaffold progress contract lines like:
+The backend emits progress lines for each stage. A no-configuration smoke run emits:
 
 ```text
 PROGRESS	stage=startup	completed=0	total=0	status=running	message=Container started
@@ -122,6 +122,7 @@ Human review required.
 Review exported graph for:
 
 - `semantic_relation = "not stated"`
+- whether `source_to_target` and `target_to_source` directions match the source/target names shown in the graph
 - low-confidence semantic labels
 - over-merged entities
 - conservative `gender_inference`
@@ -139,17 +140,16 @@ Manual cleanup steps:
 
 ## Known limits
 
-Current repo still scaffold-first.
-
 Limits:
 
-- container entrypoint not wired to full end-to-end runtime pipeline yet
-- UI triggers Docker run, not full artifact-rich production workflow
+- the UI triggers a Docker run and reports its stdout/stderr; it does not replace human review
 - progress updates depend on parseable stdout lines
 - semantic relation labels constrained to fixed schema
 - `not stated` output expected; human cleanup required
 - gender inference heuristic coarse, name-based, conservative
-- graph export works from service layer and tests; full container orchestration still pending integration
+- graph export is produced by the configured container pipeline and should still be manually reviewed
+
+If the corpus path is missing, is not a directory, contains no `.txt` files, or contains unreadable/non-UTF-8 files, the run fails before producing a graph. Correct the corpus and retry.
 
 ## Troubleshooting
 

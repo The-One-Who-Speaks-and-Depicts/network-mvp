@@ -29,7 +29,7 @@ Run checks appropriate to the issue and record their results. For the standard P
 ```text
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 python3 -m pytest -q
-python3 -m coverage run -m unittest discover -s tests -p 'test_*.py'
+python3 -m coverage run --source=app -m unittest discover -s tests -p 'test_*.py'
 python3 -m coverage report --fail-under=80
 python3 -m pylint app tests scripts
 python3 -m mypy app tests scripts

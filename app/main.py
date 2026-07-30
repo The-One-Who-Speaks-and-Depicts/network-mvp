@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 
@@ -11,7 +12,7 @@ from app.graph.export import GraphExporter
 from app.pipeline.cooccurrence import CooccurrenceService
 from app.pipeline.entities import EntityExtractionService
 from app.pipeline.entity_merge import EntityMergeService
-from app.pipeline.file_ingestion import FileIngestionService
+from app.pipeline.file_ingestion import FileIngestionService, InputDirectoryError
 from app.pipeline.lemmatization import LemmatizationService
 from app.pipeline.normalization import NormalizationService, NormalizationStageError
 from app.pipeline.semantic_relations import SemanticRelationService
@@ -58,6 +59,10 @@ def main() -> None:
         raise SystemExit(str(error)) from error
 
     llm_client = LlmClient.from_config(config)
+    logging.basicConfig(
+        level=logging.DEBUG if config.enable_debug_logging else logging.WARNING,
+        format="%(levelname)s:%(name)s:%(message)s",
+    )
 
     _emit_progress(
         stage="startup",
@@ -67,7 +72,17 @@ def main() -> None:
         message="Container started",
     )
 
-    source_files = FileIngestionService().ingest(config)
+    try:
+        source_files = FileIngestionService().ingest(config)
+    except InputDirectoryError as error:
+        _emit_progress(
+            stage="ingestion",
+            completed=0,
+            total=0,
+            status="failed",
+            message=str(error),
+        )
+        raise SystemExit(str(error)) from error
     total_files = len(source_files)
     _emit_progress(
         stage="ingestion",
