@@ -310,6 +310,24 @@ class PreprocessingTests(ScaffoldTestBase):
             self.assertTrue(log_path.is_file())
             self.assertIn("empty normalization output", log_path.read_text(encoding="utf-8"))
 
+    def test_normalization_nested_failure_log_uses_flat_safe_name(self) -> None:
+        service = NormalizationService(FakeLlmClient(responses=[" "]))
+        source_files = [
+            SourceFile(
+                file_id="text_0001",
+                filename="a/letter.txt",
+                source_path=Path("/tmp/a/letter.txt"),
+                text="raw text",
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            service.normalize_files(source_files, output_dir)
+
+            log_path = output_dir / "logs" / "normalization" / "text_0001_letter.txt.log"
+            self.assertTrue(log_path.is_file())
+
     def test_normalization_raises_for_first_llm_error_and_writes_detailed_log(self) -> None:
         client = FakeLlmClient(error=LlmClientError("request failed"))
         service = NormalizationService(client)
@@ -424,6 +442,24 @@ class PreprocessingTests(ScaffoldTestBase):
             self.assertEqual(lemmatized_files, [])
             self.assertTrue(log_path.is_file())
             self.assertIn("empty lemmatization output", log_path.read_text(encoding="utf-8"))
+
+    def test_lemmatization_nested_failure_log_uses_flat_safe_name(self) -> None:
+        service = LemmatizationService(FakeLlmClient(responses=[" "]))
+        normalized_files = [
+            NormalizedFile(
+                file_id="text_0001",
+                filename="a/letter.txt",
+                normalized_text="raw text",
+                output_path=Path("/tmp/text_0001_letter.txt"),
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            service.lemmatize_files(normalized_files, output_dir)
+
+            log_path = output_dir / "logs" / "lemmatization" / "text_0001_letter.txt.log"
+            self.assertTrue(log_path.is_file())
 
     def test_lemmatization_writes_log_for_llm_error(self) -> None:
         client = FakeLlmClient(error=LlmClientError("request failed"))

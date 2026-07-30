@@ -442,6 +442,97 @@ class RuntimeTests(ScaffoldTestBase):
             self.assertTrue((output_dir / "graph.json").is_file())
             self.assertTrue((output_dir / "graph.html").is_file())
 
+    def test_main_entrypoint_reports_partial_documents_in_final_progress(self) -> None:
+        fake_client = FakeLlmClient(
+            responses=[
+                "normalized one",
+                "normalized two",
+                "lemma one",
+                " ",
+                "Alice\tevidence",
+                "female",
+            ]
+        )
+
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            input_dir = Path(input_temp_dir)
+            (input_dir / "a.txt").write_text("one", encoding="utf-8")
+            (input_dir / "b.txt").write_text("two", encoding="utf-8")
+            buffer = io.StringIO()
+            with (
+                mock.patch("app.main.LlmClient.from_config", return_value=fake_client),
+                mock.patch.dict(
+                    "os.environ",
+                    {
+                        "NETWORK_MVP_INPUT_DIR": str(input_dir),
+                        "NETWORK_MVP_OUTPUT_DIR": output_temp_dir,
+                        "NETWORK_MVP_LMSTUDIO_BASE_URL": "http://127.0.0.1:1234/v1",
+                        "NETWORK_MVP_MODEL_NAME": "local-model",
+                    },
+                    clear=True,
+                ),
+                mock.patch("sys.stdout", buffer),
+            ):
+                app_main.main()
+
+            final_progress = buffer.getvalue().split("PROGRESS\tstage=graph_export")[-1]
+            self.assertIn("completed=1\ttotal=2", final_progress)
+            self.assertIn("status=completed_with_omissions", final_progress)
+            self.assertIn("b.txt", final_progress)
+
+    def test_main_entrypoint_aborts_when_lemmatization_has_no_records(self) -> None:
+        fake_client = FakeLlmClient(responses=["normalized", " "])
+
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            input_dir = Path(input_temp_dir)
+            (input_dir / "a.txt").write_text("one", encoding="utf-8")
+            with (
+                mock.patch("app.main.LlmClient.from_config", return_value=fake_client),
+                mock.patch.dict(
+                    "os.environ",
+                    {
+                        "NETWORK_MVP_INPUT_DIR": str(input_dir),
+                        "NETWORK_MVP_OUTPUT_DIR": output_temp_dir,
+                        "NETWORK_MVP_LMSTUDIO_BASE_URL": "http://127.0.0.1:1234/v1",
+                        "NETWORK_MVP_MODEL_NAME": "local-model",
+                    },
+                    clear=True,
+                ),
+            ):
+                with self.assertRaisesRegex(SystemExit, "Lemmatization produced no usable"):
+                    app_main.main()
+
+    def test_main_entrypoint_aborts_when_entity_extraction_has_no_records(self) -> None:
+        fake_client = FakeLlmClient(responses=["normalized", "lemma", " "])
+
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            input_dir = Path(input_temp_dir)
+            (input_dir / "a.txt").write_text("one", encoding="utf-8")
+            with (
+                mock.patch("app.main.LlmClient.from_config", return_value=fake_client),
+                mock.patch.dict(
+                    "os.environ",
+                    {
+                        "NETWORK_MVP_INPUT_DIR": str(input_dir),
+                        "NETWORK_MVP_OUTPUT_DIR": output_temp_dir,
+                        "NETWORK_MVP_LMSTUDIO_BASE_URL": "http://127.0.0.1:1234/v1",
+                        "NETWORK_MVP_MODEL_NAME": "local-model",
+                    },
+                    clear=True,
+                ),
+            ):
+                with self.assertRaisesRegex(SystemExit, "Entity extraction produced no usable"):
+                    app_main.main()
+
     def test_main_entrypoint_rejects_invalid_environment(self) -> None:
         with (
             mock.patch.dict(

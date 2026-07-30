@@ -29,7 +29,7 @@ The configured container entrypoint runs the end-to-end service pipeline. Runnin
 
 ## Version
 
-Current development version: `0.22.0-dev`
+Current development version: `0.23.0-dev`
 
 ## Requirements
 
