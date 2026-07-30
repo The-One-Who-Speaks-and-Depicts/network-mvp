@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -34,7 +34,7 @@ jobs:
           fi
 
       - name: Run tests with coverage
-        run: python -m coverage run -m unittest discover -s tests -p 'test_*.py' -v && python -m coverage report --fail-under=80
+        run: python -m coverage run --source=app -m unittest discover -s tests -p 'test_*.py' -v && python -m coverage report --fail-under=80
 
       - name: Run pylint
         run: python -m pylint app tests scripts
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build image
         run: docker build -t network-mvp:test .
@@ -62,12 +62,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 

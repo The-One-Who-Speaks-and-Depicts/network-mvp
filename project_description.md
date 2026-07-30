@@ -101,6 +101,8 @@ Allowed semantic labels:
 
 If a relation does not fit the schema, it should be marked as `not stated`. This is an expected human-in-the-loop outcome, not a hard error.
 
+Directional annotations use `source_to_target` when the relation points from Entity A (`source`) to Entity B (`target`), and `target_to_source` when it points from Entity B to Entity A. `not stated` relations have no direction.
+
 ## Graph Requirements
 
 The final graph should represent the whole corpus and compute eigenvector centrality for nodes.

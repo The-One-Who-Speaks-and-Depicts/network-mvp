@@ -20,7 +20,11 @@ from app.pipeline.cooccurrence import CooccurrenceEdge, CooccurrenceService
 from app.pipeline.entities import CandidateEntity, EntityExtractionService
 from app.pipeline.semantic_relations import SemanticEdge, SemanticRelationService
 from app.pipeline.entity_merge import CanonicalEntity, EntityMergeService
-from app.pipeline.file_ingestion import FileIngestionService, SourceFile
+from app.pipeline.file_ingestion import (
+    FileIngestionService,
+    InputDirectoryError,
+    SourceFile,
+)
 from app.pipeline.lemmatization import LemmatizationService, LemmatizedFile
 from app.pipeline.normalization import (
     NormalizationService,
@@ -367,6 +371,18 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual([file.filename for file in source_files], ["a.txt", "b.txt"])
         self.assertEqual([file.text for file in source_files], ["Alpha", "Beta"])
         self.assertTrue(all(isinstance(file, SourceFile) for file in source_files))
+
+    def test_file_ingestion_rejects_missing_or_empty_input_directory(self) -> None:
+        service = FileIngestionService()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            empty_dir = Path(temp_dir) / "empty"
+            empty_dir.mkdir()
+            with self.assertRaisesRegex(InputDirectoryError, r"contains no \.txt files"):
+                service.load_source_files(empty_dir)
+
+        with self.assertRaisesRegex(InputDirectoryError, "does not exist"):
+            service.load_source_files(Path("/path/that/does/not/exist"))
 
     def test_file_ingestion_exports_original_logs(self) -> None:
         service = FileIngestionService()
@@ -1097,6 +1113,28 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(annotated[0].semantic_relation, "not stated")
         self.assertEqual(annotated[0].semantic_confidence, 0.0)
 
+    def test_semantic_relation_annotation_rejects_unknown_direction(self) -> None:
+        edges = [
+            CooccurrenceEdge(
+                source="грикша",
+                target="ѥсифъ",
+                weight=1,
+                source_files=("003.003.txt",),
+            )
+        ]
+        client = FakeLlmClient(responses=["wife of\tleft_to_right\t0.7"])
+        service = SemanticRelationService(client)
+
+        annotated = service.annotate_edges(
+            edges,
+            lemmatized_context_by_file={"003.003.txt": "грикша и ѥсифъ"},
+            enabled=True,
+        )
+
+        self.assertEqual(annotated[0].semantic_relation, "not stated")
+        self.assertIsNone(annotated[0].semantic_direction)
+        self.assertEqual(annotated[0].semantic_confidence, 0.0)
+
     def test_semantic_relation_annotation_falls_back_on_error(self) -> None:
         edges = [
             CooccurrenceEdge(
@@ -1688,33 +1726,38 @@ class ScaffoldTests(unittest.TestCase):
         )
 
     def test_docker_runner_builds_image_before_run(self) -> None:
-        config = AppConfig.from_mapping(
-            {
-                "input_dir": "./data",
-                "output_dir": "./output",
-                "lmstudio_base_url": "http://127.0.0.1:1234/v1",
-                "model_name": "local-model",
-            }
-        )
         runner = DockerRunner(image_name="network-mvp:test")
 
-        with mock.patch("app.services.docker_runner.subprocess.run") as mock_run:
-            mock_run.side_effect = [
-                subprocess.CompletedProcess(
-                    ["docker", "build", "-t", "network-mvp:test", "."],
-                    0,
-                    stdout="built",
-                    stderr="",
-                ),
-                subprocess.CompletedProcess(
-                    ["docker", "run"],
-                    0,
-                    stdout="ok",
-                    stderr="",
-                ),
-            ]
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            (Path(input_temp_dir) / "corpus.txt").write_text("text", encoding="utf-8")
+            config = AppConfig.from_mapping(
+                {
+                    "input_dir": input_temp_dir,
+                    "output_dir": output_temp_dir,
+                    "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                    "model_name": "local-model",
+                }
+            )
+            with mock.patch("app.services.docker_runner.subprocess.run") as mock_run:
+                mock_run.side_effect = [
+                    subprocess.CompletedProcess(
+                        ["docker", "build", "-t", "network-mvp:test", "."],
+                        0,
+                        stdout="built",
+                        stderr="",
+                    ),
+                    subprocess.CompletedProcess(
+                        ["docker", "run"],
+                        0,
+                        stdout="ok",
+                        stderr="",
+                    ),
+                ]
 
-            result = runner.run(config)
+                result = runner.run(config)
 
         self.assertTrue(result.succeeded)
         self.assertEqual(mock_run.call_args_list[0].kwargs["cwd"], runner.project_root)
@@ -1724,9 +1767,41 @@ class ScaffoldTests(unittest.TestCase):
         )
 
     def test_docker_runner_returns_build_failure_when_image_build_fails(self) -> None:
+        runner = DockerRunner(image_name="network-mvp:test")
+
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            (Path(input_temp_dir) / "corpus.txt").write_text("text", encoding="utf-8")
+            config = AppConfig.from_mapping(
+                {
+                    "input_dir": input_temp_dir,
+                    "output_dir": output_temp_dir,
+                    "lmstudio_base_url": "http://127.0.0.1:1234/v1",
+                    "model_name": "local-model",
+                }
+            )
+            with mock.patch("app.services.docker_runner.subprocess.run") as mock_run:
+                mock_run.side_effect = [
+                    subprocess.CompletedProcess(
+                        ["docker", "build", "-t", "network-mvp:test", "."],
+                        1,
+                        stdout="",
+                        stderr="build failed",
+                    ),
+                ]
+
+                result = runner.run(config)
+
+        self.assertFalse(result.succeeded)
+        self.assertEqual(result.command, ["docker", "build", "-t", "network-mvp:test", "."])
+        self.assertEqual(result.stderr, "build failed")
+
+    def test_docker_runner_rejects_invalid_input_before_building(self) -> None:
         config = AppConfig.from_mapping(
             {
-                "input_dir": "./data",
+                "input_dir": "/path/that/does/not/exist",
                 "output_dir": "./output",
                 "lmstudio_base_url": "http://127.0.0.1:1234/v1",
                 "model_name": "local-model",
@@ -1735,20 +1810,12 @@ class ScaffoldTests(unittest.TestCase):
         runner = DockerRunner(image_name="network-mvp:test")
 
         with mock.patch("app.services.docker_runner.subprocess.run") as mock_run:
-            mock_run.side_effect = [
-                subprocess.CompletedProcess(
-                    ["docker", "build", "-t", "network-mvp:test", "."],
-                    1,
-                    stdout="",
-                    stderr="build failed",
-                ),
-            ]
-
             result = runner.run(config)
 
         self.assertFalse(result.succeeded)
-        self.assertEqual(result.command, ["docker", "build", "-t", "network-mvp:test", "."])
-        self.assertEqual(result.stderr, "build failed")
+        self.assertEqual(result.command, [])
+        self.assertIn("does not exist", result.stderr)
+        mock_run.assert_not_called()
 
     def test_llm_client_uses_config_values(self) -> None:
         config = AppConfig.from_mapping(
