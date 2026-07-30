@@ -1,5 +1,8 @@
 """Graph export to JSON and static HTML."""
 
+# Generated HTML/CSS/JavaScript lines are kept intact for readable output.
+# pylint: disable=line-too-long
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,6 +16,9 @@ from typing import Any
 class GraphExportResult:
     json_path: Path
     html_path: Path
+
+
+GraphPayload = dict[str, list[dict[str, object]]]
 
 
 class GraphExporter:
@@ -29,7 +35,7 @@ class GraphExporter:
         json_path = output_dir / "graph.json"
         html_path = output_dir / "graph.html"
 
-        payload = {
+        payload: GraphPayload = {
             "nodes": self._serialize_nodes(graph),
             "edges": self._serialize_edges(graph),
         }
@@ -81,7 +87,7 @@ class GraphExporter:
     def _build_html(
         self,
         *,
-        payload: dict[str, object],
+        payload: GraphPayload,
         project_description: str,
         source_text_by_file: dict[str, str],
     ) -> str:
@@ -236,13 +242,18 @@ class GraphExporter:
             "</html>\n"
         )
 
-    def _collect_used_source_files(self, payload: dict[str, object]) -> list[str]:
+    def _collect_used_source_files(self, payload: GraphPayload) -> list[str]:
         filenames: set[str] = set()
         for node in payload["nodes"]:
-            filenames.update(node.get("source_files", []))
+            filenames.update(self._string_values(node.get("source_files")))
         for edge in payload["edges"]:
-            filenames.update(edge.get("source_files", []))
+            filenames.update(self._string_values(edge.get("source_files")))
         return sorted(filenames)
+
+    def _string_values(self, value: object) -> list[str]:
+        if not isinstance(value, (list, tuple)):
+            return []
+        return [item for item in value if isinstance(item, str)]
 
     def _read_project_description(self) -> str:
         if not self.project_description_path.is_file():

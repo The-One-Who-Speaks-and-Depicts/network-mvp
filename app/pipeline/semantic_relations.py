@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 
 from app.pipeline.cooccurrence import CooccurrenceEdge
 from app.services.llm_client import LlmClientError, PromptingClient
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 ALLOWED_RELATIONS = {
@@ -100,7 +104,23 @@ class SemanticRelationService:
         try:
             response = self.llm_client.prompt(prompt)
             relation, direction, confidence = self._parse_response(response.text)
-        except (LlmClientError, ValueError):
+        except LlmClientError as error:
+            LOGGER.warning(
+                "Semantic relation request failed for edge=%s->%s: %s",
+                edge.source,
+                edge.target,
+                error,
+            )
+            return self._to_semantic_edge(
+                edge, relation="not stated", direction=None, confidence=0.0
+            )
+        except ValueError as error:
+            LOGGER.warning(
+                "Semantic relation response was invalid for edge=%s->%s: %s",
+                edge.source,
+                edge.target,
+                error,
+            )
             return self._to_semantic_edge(
                 edge,
                 relation="not stated",

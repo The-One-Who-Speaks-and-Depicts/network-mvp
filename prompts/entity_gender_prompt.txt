@@ -4,13 +4,13 @@ Return exactly one label on one line:
 - female
 - ambiguous
 - unresolved
-- not-inferred
+- not_inferred
 
 Interpretation:
 - `female` = entity is clearly female from name, title, or evidence
 - `ambiguous` = evidence conflicts or is too mixed to decide cleanly
 - `unresolved` = entity seems person-like, but available evidence does not justify female label
-- `not-inferred` = not enough evidence, non-person/group candidate, or malformed candidate
+- `not_inferred` = not enough evidence, non-person/group candidate, or malformed candidate
 
 Rules:
 - use aliases and evidence together

@@ -15,17 +15,23 @@ class LlmClientError(RuntimeError):
 
 
 class PromptingClient(Protocol):
+    """Minimal interface required by pipeline stages and their test doubles."""
+
     def prompt(self, prompt_text: str, system_prompt: str | None = None) -> "LlmResponse":
         ...
 
 
 @dataclass(frozen=True)
 class LlmResponse:
+    """Normalized response text plus the provider-native response object."""
+
     text: str
     raw_response: Any
 
 
 class LlmClient:
+    """Adapter around an OpenAI-compatible chat-completions endpoint."""
+
     def __init__(
         self,
         base_url: str,
@@ -54,6 +60,8 @@ class LlmClient:
         )
 
     def prompt(self, prompt_text: str, system_prompt: str | None = None) -> LlmResponse:
+        """Send one prompt and raise ``LlmClientError`` for unusable responses."""
+
         if not prompt_text.strip():
             raise LlmClientError("Prompt text must not be empty")
 
@@ -70,7 +78,8 @@ class LlmClient:
         except Exception as error:  # noqa: BLE001
             raise LlmClientError(
                 "LLM request failed. "
-                f"base_url={self.base_url} model={self.model_name} details={_format_exception_chain(error)}"
+                f"base_url={self.base_url} model={self.model_name} "
+                f"details={_format_exception_chain(error)}"
             ) from error
 
         text = _extract_text(response)

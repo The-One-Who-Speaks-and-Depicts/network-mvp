@@ -110,7 +110,11 @@ class DockerRunner:
         parsed = urlsplit(base_url)
         if parsed.hostname not in {"127.0.0.1", "localhost", "::1", "host.docker.internal"}:
             return base_url
-        target_hostname = "127.0.0.1" if self._should_use_host_network(base_url) else "host.docker.internal"
+        target_hostname = (
+            "127.0.0.1"
+            if self._should_use_host_network(base_url)
+            else "host.docker.internal"
+        )
         netloc = parsed.netloc.replace(parsed.hostname, target_hostname, 1)
         return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 

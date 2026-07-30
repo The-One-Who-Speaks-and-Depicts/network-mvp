@@ -119,7 +119,7 @@ Gender tagging schema:
 - `female`
 - `ambiguous`
 - `unresolved`
-- `not-inferred`
+- `not_inferred`
 
 The graph should visually highlight only female nodes, while preserving all other nodes for context. The HTML artifact should also provide a control to hide or show non-female nodes without deleting them from the graph.
 

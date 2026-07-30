@@ -9,6 +9,7 @@ from typing import Any, cast
 try:
     import networkx as NETWORKX
 except ModuleNotFoundError:  # pragma: no cover - exercised indirectly in local envs
+    # Keep a small in-project graph implementation available for minimal installs.
     NETWORKX = None
 
 from app.pipeline.entity_merge import CanonicalEntity
@@ -16,6 +17,8 @@ from app.pipeline.semantic_relations import SemanticEdge
 
 
 class SimpleEdgeView:
+    """Undirected edge storage implementing the subset used by this pipeline."""
+
     def __init__(self) -> None:
         self._data: dict[tuple[str, str], dict[str, object]] = {}
 
@@ -47,8 +50,13 @@ class SimpleGraph:
         self.nodes[node_name] = dict(attributes)
 
     def add_edge(self, source: str, target: str, **attributes: object) -> None:
-        key = cast(tuple[str, str], tuple(sorted((source, target))))
+        # Sorting makes both (source, target) and (target, source) address one edge.
+        key = self._edge_key(source, target)
         self.edges.add(key[0], key[1], dict(attributes))
+
+    @staticmethod
+    def _edge_key(source: str, target: str) -> tuple[str, str]:
+        return cast(tuple[str, str], tuple(sorted((source, target))))
 
     def number_of_nodes(self) -> int:
         return len(self.nodes)
@@ -70,6 +78,8 @@ class GraphBuilder:
         entities: list[CanonicalEntity],
         edges: list[SemanticEdge],
     ) -> GraphBuildResult:
+        # Use NetworkX in normal deployments and the compatible fallback when it is
+        # intentionally absent (for example, a lightweight test or recovery image).
         graph = NETWORKX.Graph() if NETWORKX is not None else SimpleGraph()
 
         for entity in entities:
@@ -115,6 +125,8 @@ class GraphBuilder:
 
         if NETWORKX is not None:
             try:
+                # NetworkX gives us a battle-tested weighted centrality algorithm;
+                # a failed convergence is reported and produces safe zero values.
                 return cast(
                     dict[str, float],
                     NETWORKX.eigenvector_centrality(graph, weight="weight", max_iter=1000),

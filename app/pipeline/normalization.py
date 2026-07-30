@@ -8,6 +8,7 @@ from pathlib import Path
 import traceback
 
 from app.pipeline.file_ingestion import SourceFile
+from app.pipeline.text_utils import sanitize_output
 from app.services.llm_client import LlmClientError, PromptingClient
 
 
@@ -84,7 +85,7 @@ class NormalizationService:
         return normalized_files
 
     def _sanitize_output(self, text: str) -> str:
-        return " ".join(text.split())
+        return sanitize_output(text)
 
     def _write_malformed_log(
         self,
@@ -107,7 +108,9 @@ class NormalizationService:
                     f"error_type: {type(error).__name__}",
                     f"error_message: {error}",
                     "traceback:",
-                    "".join(traceback.format_exception(type(error), error, error.__traceback__)).rstrip(),
+                    "".join(
+                        traceback.format_exception(type(error), error, error.__traceback__)
+                    ).rstrip(),
                     "source_text:",
                     source_file.text,
                     "prompt:",

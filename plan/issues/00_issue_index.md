@@ -26,6 +26,10 @@ Goal: keep implementation sliced into small, context-safe units that can be comp
 20. `19_lemma_pipeline_and_quality_gates.md`
 21. `20_llm_gender_inference.md`
 
+## Fix issues
+
+See `fix/00_fix_issue_index.md` for remediation work kept separate from the implementation sequence.
+
 ## Rules for each issue
 
 - keep scope to 1 bounded deliverable

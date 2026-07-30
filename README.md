@@ -250,7 +250,7 @@ Current service supports:
   - `female`
   - `ambiguous`
   - `unresolved`
-  - `not-inferred`
+- `not_inferred`
 
 ## Co-occurrence edge generation
 

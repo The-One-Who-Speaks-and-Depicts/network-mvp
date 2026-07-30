@@ -5,7 +5,7 @@ Track implementation progress here. Every PR into `dev` must:
 1. update `VERSION`, and
 2. mark at least 1 issue as completed in this file.
 
-## Checklist
+## Implementation issues
 
 - [x] 01 Repository scaffold
 - [x] 02 Dependencies and Dockerfile
@@ -28,3 +28,10 @@ Track implementation progress here. Every PR into `dev` must:
 - [x] 18 Documentation and runbook
 - [x] 19 Lemmatized pipeline alignment and quality gates
 - [x] 20 LLM-based gender inference for merged entities
+
+## Fix issues
+
+Remediation work is tracked separately from the original implementation sequence.
+
+- [x] 21 PR #2 review iteration 1 remediation (`plan/issues/fix/21_pr2_review_iteration_1.md`)
+- [x] 22 PR #22 CI remediation

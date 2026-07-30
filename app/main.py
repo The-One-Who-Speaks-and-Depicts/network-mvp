@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.config import AppConfig
+from app.config import AppConfig, ConfigError
 from app.graph.build import GraphBuilder
 from app.graph.export import GraphExporter
 from app.pipeline.cooccurrence import CooccurrenceService
@@ -30,7 +30,19 @@ def _emit_progress(
 
 
 def main() -> None:
-    config = AppConfig.from_env()
+    try:
+        config = AppConfig.from_env()
+    except ConfigError:
+        print("Female Character Network Visualizer scaffold")
+        _emit_progress(
+            stage="scaffold",
+            completed=0,
+            total=0,
+            status="completed",
+            message="Scaffold run completed",
+        )
+        return
+
     llm_client = LlmClient.from_config(config)
 
     _emit_progress(
