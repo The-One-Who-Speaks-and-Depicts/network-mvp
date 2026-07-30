@@ -149,7 +149,7 @@ def main() -> None:
     )
     _emit_progress(
         stage="entity_extraction",
-        completed=len(candidates),
+        completed=len({candidate.file_id for candidate in candidates}),
         total=total_files,
         status="completed" if candidates else "failed",
         message=(

@@ -73,5 +73,7 @@ class LemmatizationService:
         normalized_file: NormalizedFile,
         error_message: str,
     ) -> None:
-        log_path = log_dir / f"{normalized_file.file_id}_{normalized_file.filename}.log"
+        log_path = log_dir / (
+            f"{normalized_file.file_id}_{Path(normalized_file.filename).name}.log"
+        )
         log_path.write_text(error_message, encoding="utf-8")

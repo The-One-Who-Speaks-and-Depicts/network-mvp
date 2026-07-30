@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import subprocess
 import sys
+import threading
 from collections.abc import Callable
 from urllib.parse import urlsplit, urlunsplit
 
@@ -120,13 +121,22 @@ class DockerRunner:
             bufsize=1,
         ) as process:
             stdout_lines: list[str] = []
+            stderr_lines: list[str] = []
             assert process.stdout is not None
+            assert process.stderr is not None
+            stderr_stream = process.stderr
+
+            def drain_stderr() -> None:
+                stderr_lines.extend(stderr_stream)
+
+            stderr_thread = threading.Thread(target=drain_stderr)
+            stderr_thread.start()
             for line in process.stdout:
                 stdout_lines.append(line)
                 output_callback(line.rstrip("\n"))
-            stderr = process.stderr.read() if process.stderr is not None else ""
             returncode = process.wait()
-        return "".join(stdout_lines), stderr, returncode
+            stderr_thread.join()
+        return "".join(stdout_lines), "".join(stderr_lines), returncode
 
     def _should_use_host_network(self, base_url: str) -> bool:
         hostname = urlsplit(base_url).hostname

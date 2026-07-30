@@ -92,7 +92,7 @@ class NormalizationService:
         prompt: str,
         error: Exception,
     ) -> Path:
-        log_path = log_dir / f"{source_file.file_id}_{source_file.filename}.log"
+        log_path = log_dir / f"{source_file.file_id}_{source_file.source_path.name}.log"
         timestamp = datetime.now(timezone.utc).isoformat()
         log_path.write_text(
             "\n".join(

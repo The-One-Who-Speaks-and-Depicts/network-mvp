@@ -6,6 +6,7 @@
 import io
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 from unittest import mock
 
@@ -26,6 +27,23 @@ from tests.test_support import (
 
 
 class RuntimeTests(ScaffoldTestBase):
+    def test_streaming_runner_drains_stderr_while_reading_stdout(self) -> None:
+        # pylint: disable=protected-access
+        runner = DockerRunner()
+        lines: list[str] = []
+        command = [
+            sys.executable,
+            "-c",
+            "import sys; sys.stderr.write('x' * 1048576); print('progress')",
+        ]
+
+        stdout, stderr, returncode = runner._run_streaming(command, lines.append)
+
+        self.assertEqual(returncode, 0)
+        self.assertEqual(stdout, "progress\n")
+        self.assertEqual(stderr, "x" * 1048576)
+        self.assertEqual(lines, ["progress"])
+
     def test_docker_runner_builds_expected_command(self) -> None:
         config = AppConfig.from_mapping(
             {
