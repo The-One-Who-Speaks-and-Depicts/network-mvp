@@ -1,8 +1,6 @@
 """Entities pipeline tests."""
 
 # Focused suites intentionally share realistic setup snippets.
-# pylint: disable=duplicate-code
-
 from tests.test_support import (
     CandidateEntity,
     CanonicalEntity,
@@ -20,6 +18,9 @@ from tests.test_support import (
 )
 
 
+# Entity tests retain local corpus fixtures because aliases, evidence, and
+# source-file provenance are part of the behavior each assertion documents.
+# pylint: disable=duplicate-code
 class EntityAndRelationTests(ScaffoldTestBase):
     def test_entity_extraction_parses_candidates_per_file(self) -> None:
         lemmatized_files = [

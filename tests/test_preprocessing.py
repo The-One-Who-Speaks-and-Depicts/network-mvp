@@ -1,8 +1,6 @@
 """Preprocessing pipeline tests."""
 
 # Focused suites intentionally share realistic setup snippets.
-# pylint: disable=duplicate-code
-
 from tests.test_support import (
     AppConfig,
     ConfigError,
@@ -18,10 +16,14 @@ from tests.test_support import (
     Path,
     SourceFile,
     tempfile,
+    mock,
     ScaffoldTestBase,
 )
 
 
+# Preprocessing tests keep temporary-corpus setup beside the stage under test;
+# this makes file/encoding and artifact behavior directly readable.
+# pylint: disable=duplicate-code
 class PreprocessingTests(ScaffoldTestBase):
     def test_required_directories_exist(self) -> None:
         for path in [
@@ -221,6 +223,29 @@ class PreprocessingTests(ScaffoldTestBase):
         with self.assertRaisesRegex(InputDirectoryError, "does not exist"):
             service.load_source_files(Path("/path/that/does/not/exist"))
 
+    def test_file_ingestion_reports_invalid_utf8_without_double_decoding(self) -> None:
+        service = FileIngestionService()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_dir = Path(temp_dir)
+            invalid_file = input_dir / "invalid.txt"
+            invalid_file.write_bytes(b"\xff")
+
+            with self.assertRaisesRegex(InputDirectoryError, "not valid UTF-8"):
+                service.load_source_files(input_dir)
+
+    def test_file_ingestion_reports_access_failures(self) -> None:
+        service = FileIngestionService()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_dir = Path(temp_dir)
+            (input_dir / "blocked.txt").write_text("text", encoding="utf-8")
+            with mock.patch.object(
+                Path,
+                "read_text",
+                side_effect=PermissionError("permission denied"),
+            ):
+                with self.assertRaisesRegex(InputDirectoryError, "Could not access corpus file"):
+                    service.load_source_files(input_dir)
+
     def test_file_ingestion_exports_original_logs(self) -> None:
         service = FileIngestionService()
         source_files = [
@@ -308,7 +333,9 @@ class PreprocessingTests(ScaffoldTestBase):
 
             self.assertEqual(normalized_files, [])
             self.assertTrue(log_path.is_file())
-            self.assertIn("empty normalization output", log_path.read_text(encoding="utf-8"))
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("error_category: invalid_model_output", log_text)
+            self.assertIn("empty normalization output", log_text)
 
     def test_normalization_nested_failure_log_uses_flat_safe_name(self) -> None:
         service = NormalizationService(FakeLlmClient(responses=[" "]))
@@ -350,6 +377,7 @@ class PreprocessingTests(ScaffoldTestBase):
             self.assertTrue(log_path.is_file())
             log_text = log_path.read_text(encoding="utf-8")
             self.assertIn("error_type: LlmClientError", log_text)
+            self.assertIn("error_category: llm_request", log_text)
             self.assertIn("error_message: request failed", log_text)
             self.assertIn("traceback:", log_text)
             self.assertIn("LlmClientError: request failed", log_text)
@@ -441,7 +469,9 @@ class PreprocessingTests(ScaffoldTestBase):
 
             self.assertEqual(lemmatized_files, [])
             self.assertTrue(log_path.is_file())
-            self.assertIn("empty lemmatization output", log_path.read_text(encoding="utf-8"))
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("error_category: invalid_model_output", log_text)
+            self.assertIn("empty lemmatization output", log_text)
 
     def test_lemmatization_nested_failure_log_uses_flat_safe_name(self) -> None:
         service = LemmatizationService(FakeLlmClient(responses=[" "]))
@@ -480,7 +510,9 @@ class PreprocessingTests(ScaffoldTestBase):
 
             self.assertEqual(lemmatized_files, [])
             self.assertTrue(log_path.is_file())
-            self.assertIn("request failed", log_path.read_text(encoding="utf-8"))
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("error_category: llm_request", log_text)
+            self.assertIn("request failed", log_text)
 
     def test_lemmatization_with_zenodo_birchbark_fixtures(self) -> None:
         normalized_files = [

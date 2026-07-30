@@ -44,12 +44,26 @@ class LemmatizationService:
             prompt = prompt_template.format(text=normalized_file.normalized_text)
             try:
                 response = self.llm_client.prompt(prompt)
+            except LlmClientError as error:
+                self._write_malformed_log(
+                    malformed_log_dir,
+                    normalized_file,
+                    error_message=str(error),
+                    error_category="llm_request",
+                )
+                continue
+
+            try:
                 lemma_text = sanitize_output(response.text)
                 if not lemma_text:
                     raise ValueError("empty lemmatization output")
-            except (LlmClientError, ValueError) as error:
-                # One malformed file should be isolated; later corpus files still run.
-                self._write_malformed_log(malformed_log_dir, normalized_file, str(error))
+            except ValueError as error:
+                self._write_malformed_log(
+                    malformed_log_dir,
+                    normalized_file,
+                    error_message=str(error),
+                    error_category="invalid_model_output",
+                )
                 continue
 
             output_path = lemma_dir / (
@@ -72,8 +86,12 @@ class LemmatizationService:
         log_dir: Path,
         normalized_file: NormalizedFile,
         error_message: str,
+        error_category: str,
     ) -> None:
         log_path = log_dir / (
             f"{normalized_file.file_id}_{Path(normalized_file.filename).name}.log"
         )
-        log_path.write_text(error_message, encoding="utf-8")
+        log_path.write_text(
+            f"error_category: {error_category}\nerror_message: {error_message}\n",
+            encoding="utf-8",
+        )
