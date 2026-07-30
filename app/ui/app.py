@@ -40,16 +40,35 @@ def main() -> None:
     st.subheader("Status")
 
     if submitted:
+        progress_placeholder = st.empty()
+        output_lines: list[str] = []
+
+        def show_progress(line: str) -> None:
+            output_lines.append(line)
+            progress = shell_module.ProgressReporter().from_result(
+                stdout="\n".join(output_lines), stderr="", succeeded=True
+            )
+            progress_placeholder.write(
+                f"Current stage: `{progress.current_stage}` — {progress.message}"
+            )
+
         response = handle_run_request(
             {
                 "input_dir": input_dir,
                 "output_dir": output_dir,
                 "lmstudio_base_url": lmstudio_base_url,
                 "model_name": model_name,
-            }
+            },
+            output_callback=show_progress,
         )
         if response.result and response.result.succeeded:
-            st.success(response.status_message)
+            if (
+                response.progress_state
+                and response.progress_state.status == "completed_with_omissions"
+            ):
+                st.warning(response.status_message)
+            else:
+                st.success(response.status_message)
         else:
             st.error(response.status_message)
 

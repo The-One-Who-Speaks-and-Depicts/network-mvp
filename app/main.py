@@ -11,11 +11,11 @@ from app.graph.build import GraphBuilder
 from app.graph.export import GraphExporter
 from app.pipeline.cooccurrence import CooccurrenceService
 from app.pipeline.entities import EntityExtractionService
-from app.pipeline.entity_merge import EntityMergeService
-from app.pipeline.file_ingestion import FileIngestionService, InputDirectoryError
+from app.pipeline.entity_merge import CanonicalEntity, EntityMergeService
+from app.pipeline.file_ingestion import FileIngestionService, InputDirectoryError, SourceFile
 from app.pipeline.lemmatization import LemmatizationService
 from app.pipeline.normalization import NormalizationService, NormalizationStageError
-from app.pipeline.semantic_relations import SemanticRelationService
+from app.pipeline.semantic_relations import SemanticEdge, SemanticRelationService
 from app.services.llm_client import LlmClient
 
 
@@ -29,7 +29,50 @@ def _emit_progress(
 ) -> None:
     print(
         f"PROGRESS\tstage={stage}\tcompleted={completed}\ttotal={total}\t"
-        f"status={status}\tmessage={message}"
+        f"status={status}\tmessage={message}",
+        flush=True,
+    )
+
+
+def _omitted_source_filenames(
+    source_files: list[SourceFile],
+    extracted_file_ids: set[str],
+) -> list[str]:
+    return [
+        source_file.filename
+        for source_file in source_files
+        if source_file.file_id not in extracted_file_ids
+    ]
+
+
+def _export_graph_and_report(
+    entities: list[CanonicalEntity],
+    semantic_edges: list[SemanticEdge],
+    config: AppConfig,
+    source_files: list[SourceFile],
+    extracted_file_ids: set[str],
+) -> None:
+    graph_result = GraphBuilder().build(entities, semantic_edges)
+    GraphExporter().export(
+        graph_result.graph,
+        config.output_dir,
+        source_text_by_file={
+            source_file.filename: source_file.text for source_file in source_files
+        },
+    )
+    omitted_filenames = _omitted_source_filenames(source_files, extracted_file_ids)
+    omission_message = (
+        f"completed with omissions: omitted {len(omitted_filenames)} document(s)"
+        f" ({', '.join(omitted_filenames)})"
+        if omitted_filenames
+        else "Artifacts exported"
+    )
+    _emit_progress(
+        stage="graph_export",
+        completed=len(extracted_file_ids),
+        total=len(source_files),
+        status="completed_with_omissions" if omitted_filenames else "completed",
+        message=omission_message,
     )
 
 
@@ -110,9 +153,15 @@ def main() -> None:
         stage="normalization",
         completed=len(normalized_files),
         total=total_files,
-        status="completed",
-        message="Normalization finished",
+        status="completed" if normalized_files else "failed",
+        message=(
+            f"Normalization finished; omitted {total_files - len(normalized_files)} document(s)"
+            if len(normalized_files) < total_files
+            else "Normalization finished"
+        ),
     )
+    if not normalized_files:
+        raise SystemExit("Normalization produced no usable documents; aborting run.")
 
     lemmatized_files = LemmatizationService(llm_client).lemmatize_files(
         normalized_files,
@@ -122,9 +171,15 @@ def main() -> None:
         stage="lemmatization",
         completed=len(lemmatized_files),
         total=total_files,
-        status="completed",
-        message="Lemmatization finished",
+        status="completed" if lemmatized_files else "failed",
+        message=(
+            f"Lemmatization finished; omitted {total_files - len(lemmatized_files)} document(s)"
+            if len(lemmatized_files) < total_files
+            else "Lemmatization finished"
+        ),
     )
+    if not lemmatized_files:
+        raise SystemExit("Lemmatization produced no usable documents; aborting run.")
 
     source_text_by_file = {
         source_file.filename: source_file.text
@@ -134,13 +189,22 @@ def main() -> None:
         lemmatized_files,
         source_text_by_file=source_text_by_file,
     )
+    extracted_file_ids = {candidate.file_id for candidate in candidates}
     _emit_progress(
         stage="entity_extraction",
-        completed=len(lemmatized_files),
+        completed=len(extracted_file_ids),
         total=total_files,
-        status="completed",
-        message=f"Extracted {len(candidates)} candidate entities",
+        status="completed" if candidates else "failed",
+        message=(
+            f"Extracted {len(candidates)} candidate entities; omitted "
+            f"{len(lemmatized_files) - len(extracted_file_ids)} "
+            "document(s)"
+            if len(extracted_file_ids) < len(lemmatized_files)
+            else f"Extracted {len(candidates)} candidate entities"
+        ),
     )
+    if not candidates:
+        raise SystemExit("Entity extraction produced no usable records; aborting run.")
 
     entities = EntityMergeService(llm_client).merge_candidates(candidates)
     edges = CooccurrenceService().build_edges(entities)
@@ -162,18 +226,12 @@ def main() -> None:
         message="Semantic annotation finished",
     )
 
-    graph_result = GraphBuilder().build(entities, semantic_edges)
-    GraphExporter().export(
-        graph_result.graph,
-        config.output_dir,
-        source_text_by_file=source_text_by_file,
-    )
-    _emit_progress(
-        stage="graph_export",
-        completed=total_files,
-        total=total_files,
-        status="completed",
-        message="Artifacts exported",
+    _export_graph_and_report(
+        entities,
+        semantic_edges,
+        config,
+        source_files,
+        extracted_file_ids,
     )
 
 

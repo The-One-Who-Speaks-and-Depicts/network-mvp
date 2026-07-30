@@ -52,8 +52,8 @@ class LemmatizationService:
                 self._write_malformed_log(malformed_log_dir, normalized_file, str(error))
                 continue
 
-            output_path = lemma_dir.joinpath(
-                f"{normalized_file.file_id}_{normalized_file.filename}"
+            output_path = lemma_dir / (
+                f"{normalized_file.file_id}_{Path(normalized_file.filename).name}"
             )
             output_path.write_text(lemma_text, encoding="utf-8")
             lemmatized_files.append(
@@ -73,5 +73,7 @@ class LemmatizationService:
         normalized_file: NormalizedFile,
         error_message: str,
     ) -> None:
-        log_path = log_dir / f"{normalized_file.file_id}_{normalized_file.filename}.log"
+        log_path = log_dir / (
+            f"{normalized_file.file_id}_{Path(normalized_file.filename).name}.log"
+        )
         log_path.write_text(error_message, encoding="utf-8")

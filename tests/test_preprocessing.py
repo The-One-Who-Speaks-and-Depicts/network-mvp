@@ -182,6 +182,33 @@ class PreprocessingTests(ScaffoldTestBase):
         self.assertEqual([file.text for file in source_files], ["Alpha", "Beta"])
         self.assertTrue(all(isinstance(file, SourceFile) for file in source_files))
 
+    def test_file_ingestion_preserves_nested_paths_without_nested_log_paths(self) -> None:
+        service = FileIngestionService()
+        with (
+            tempfile.TemporaryDirectory() as input_temp_dir,
+            tempfile.TemporaryDirectory() as output_temp_dir,
+        ):
+            input_dir = Path(input_temp_dir)
+            (input_dir / "a").mkdir()
+            (input_dir / "b").mkdir()
+            (input_dir / "a" / "same.txt").write_text("A", encoding="utf-8")
+            (input_dir / "b" / "same.txt").write_text("B", encoding="utf-8")
+
+            source_files = service.load_source_files(input_dir)
+            service.export_original_logs(source_files, Path(output_temp_dir))
+
+            self.assertEqual(
+                [source_file.filename for source_file in source_files],
+                ["a/same.txt", "b/same.txt"],
+            )
+            self.assertEqual(
+                sorted(
+                    path.name
+                    for path in (Path(output_temp_dir) / "logs" / "original").iterdir()
+                ),
+                ["text_0001_same.txt", "text_0002_same.txt"],
+            )
+
     def test_file_ingestion_rejects_missing_or_empty_input_directory(self) -> None:
         service = FileIngestionService()
 
@@ -282,6 +309,24 @@ class PreprocessingTests(ScaffoldTestBase):
             self.assertEqual(normalized_files, [])
             self.assertTrue(log_path.is_file())
             self.assertIn("empty normalization output", log_path.read_text(encoding="utf-8"))
+
+    def test_normalization_nested_failure_log_uses_flat_safe_name(self) -> None:
+        service = NormalizationService(FakeLlmClient(responses=[" "]))
+        source_files = [
+            SourceFile(
+                file_id="text_0001",
+                filename="a/letter.txt",
+                source_path=Path("/tmp/a/letter.txt"),
+                text="raw text",
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            service.normalize_files(source_files, output_dir)
+
+            log_path = output_dir / "logs" / "normalization" / "text_0001_letter.txt.log"
+            self.assertTrue(log_path.is_file())
 
     def test_normalization_raises_for_first_llm_error_and_writes_detailed_log(self) -> None:
         client = FakeLlmClient(error=LlmClientError("request failed"))
@@ -397,6 +442,24 @@ class PreprocessingTests(ScaffoldTestBase):
             self.assertEqual(lemmatized_files, [])
             self.assertTrue(log_path.is_file())
             self.assertIn("empty lemmatization output", log_path.read_text(encoding="utf-8"))
+
+    def test_lemmatization_nested_failure_log_uses_flat_safe_name(self) -> None:
+        service = LemmatizationService(FakeLlmClient(responses=[" "]))
+        normalized_files = [
+            NormalizedFile(
+                file_id="text_0001",
+                filename="a/letter.txt",
+                normalized_text="raw text",
+                output_path=Path("/tmp/text_0001_letter.txt"),
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir)
+            service.lemmatize_files(normalized_files, output_dir)
+
+            log_path = output_dir / "logs" / "lemmatization" / "text_0001_letter.txt.log"
+            self.assertTrue(log_path.is_file())
 
     def test_lemmatization_writes_log_for_llm_error(self) -> None:
         client = FakeLlmClient(error=LlmClientError("request failed"))

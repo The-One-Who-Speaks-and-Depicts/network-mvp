@@ -83,13 +83,13 @@ UI currently shows:
 
 - current stage
 - file counts when backend reports them
-- completion or failure state
+- completion, completed-with-omissions, or failure state
 - container stdout/stderr
 
-The backend emits progress lines for each stage. A no-configuration smoke run emits:
+The backend emits progress lines for each configured stage. A no-configuration smoke run emits:
 
 ```text
-PROGRESS	stage=startup	completed=0	total=0	status=running	message=Container started
+PROGRESS	stage=scaffold	completed=0	total=0	status=completed	message=Scaffold run completed
 ```
 
 ## Outputs

@@ -50,7 +50,9 @@ class FileIngestionService:
         return [
             SourceFile(
                 file_id=self._make_file_id(index),
-                filename=path.name,
+                # Basenames are not unique in a recursive corpus. Preserve
+                # the relative path as the provenance/source identifier.
+                filename=path.relative_to(input_dir).as_posix(),
                 source_path=path,
                 text=self._read_text(path),
             )
@@ -74,7 +76,7 @@ class FileIngestionService:
         log_dir.mkdir(parents=True, exist_ok=True)
 
         for source_file in source_files:
-            log_path = log_dir / f"{source_file.file_id}_{source_file.filename}"
+            log_path = log_dir / f"{source_file.file_id}_{source_file.source_path.name}"
             log_path.write_text(source_file.text, encoding="utf-8")
 
         return log_dir

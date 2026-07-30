@@ -29,7 +29,7 @@ The configured container entrypoint runs the end-to-end service pipeline. Runnin
 
 ## Version
 
-Current development version: `0.22.0-dev`
+Current development version: `0.23.0-dev`
 
 ## Requirements
 
@@ -167,7 +167,7 @@ Current UI provides:
 - status area with container stdout/stderr
 - current stage display
 - file-count progress display where backend reports counts
-- clear completion/failure state
+- clear completion, completed-with-omissions, or failure state
 
 ### 4. Run sample flow
 
@@ -320,6 +320,12 @@ Current service supports:
 - completion/failure state derivation
 - UI display of stage, counts, and final state
 
+The final state is `completed` when every source document reaches extraction,
+`completed_with_omissions` when the graph is exported but one or more documents
+were omitted, and `failed` when a required stage produces no usable records.
+The UI presents completed-with-omissions runs as warnings and includes the
+omitted filenames in the final progress message.
+
 Progress line format:
 
 ```text
@@ -329,7 +335,6 @@ PROGRESS\tstage=<stage>\tcompleted=<n>\ttotal=<n>\tstatus=<state>\tmessage=<text
 Example scaffold output:
 
 ```text
-PROGRESS	stage=startup	completed=0	total=0	status=running	message=Container started
 PROGRESS	stage=scaffold	completed=0	total=0	status=completed	message=Scaffold run completed
 ```
 
