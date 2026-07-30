@@ -1,7 +1,6 @@
 """Runtime service and integration tests."""
 
 # Focused suites intentionally share realistic setup snippets.
-# pylint: disable=duplicate-code  # Keep runtime scenarios readable and independently configurable.
 import io
 from pathlib import Path
 import subprocess
@@ -25,8 +24,13 @@ from tests.test_support import (
 )
 
 
+# Runtime tests keep scenario-specific environment and runner setup local so
+# each integration path remains independently configurable and readable.
+# pylint: disable=duplicate-code
 class RuntimeTests(ScaffoldTestBase):
     def test_streaming_runner_drains_stderr_while_reading_stdout(self) -> None:
+        # This directly exercises pipe-draining behavior that is intentionally
+        # kept private behind DockerRunner.run().
         # pylint: disable=protected-access
         runner = DockerRunner()
         lines: list[str] = []

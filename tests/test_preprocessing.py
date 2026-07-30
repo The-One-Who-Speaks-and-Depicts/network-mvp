@@ -1,7 +1,6 @@
 """Preprocessing pipeline tests."""
 
 # Focused suites intentionally share realistic setup snippets.
-# pylint: disable=duplicate-code  # Keep preprocessing fixtures local to stage-specific assertions.
 from tests.test_support import (
     AppConfig,
     ConfigError,
@@ -22,6 +21,9 @@ from tests.test_support import (
 )
 
 
+# Preprocessing tests keep temporary-corpus setup beside the stage under test;
+# this makes file/encoding and artifact behavior directly readable.
+# pylint: disable=duplicate-code
 class PreprocessingTests(ScaffoldTestBase):
     def test_required_directories_exist(self) -> None:
         for path in [

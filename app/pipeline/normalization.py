@@ -63,6 +63,7 @@ class NormalizationService:
                     source_file,
                     prompt=prompt,
                     error=error,
+                    error_category="llm_request",
                 )
                 if index == 0:
                     raise NormalizationStageError(source_file, log_path, str(error)) from error
@@ -78,6 +79,7 @@ class NormalizationService:
                     source_file,
                     prompt=prompt,
                     error=error,
+                    error_category="invalid_model_output",
                 )
                 continue
 
@@ -94,6 +96,9 @@ class NormalizationService:
 
         return normalized_files
 
+    # The log writer receives all fields needed for a complete forensic record;
+    # keeping them explicit avoids an untyped context object at this boundary.
+    # pylint: disable=too-many-arguments
     def _write_malformed_log(
         self,
         log_dir: Path,
@@ -101,10 +106,8 @@ class NormalizationService:
         *,
         prompt: str,
         error: Exception,
+        error_category: str,
     ) -> Path:
-        error_category = (
-            "llm_request" if isinstance(error, LlmClientError) else "invalid_model_output"
-        )
         log_path = log_dir / f"{source_file.file_id}_{source_file.source_path.name}.log"
         timestamp = datetime.now(timezone.utc).isoformat()
         log_path.write_text(

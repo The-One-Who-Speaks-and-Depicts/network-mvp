@@ -13,7 +13,25 @@ class InputDirectoryError(ValueError):
 
 
 def validate_input_directory(input_dir: Path) -> str | None:
-    """Return a user-facing error for missing or structurally empty corpus dirs."""
+    """Fully validate a corpus before an external Docker build or run."""
+
+    structural_error = validate_input_structure(input_dir)
+    if structural_error is not None:
+        return structural_error
+
+    text_files = sorted(path for path in input_dir.rglob("*.txt") if path.is_file())
+    for text_file in text_files:
+        try:
+            text_file.read_text(encoding="utf-8")
+        except OSError as error:
+            return f"Could not access corpus file {text_file}: {error}"
+        except UnicodeError as error:
+            return f"Corpus file is not valid UTF-8: {text_file}: {error}"
+    return None
+
+
+def validate_input_structure(input_dir: Path) -> str | None:
+    """Validate only corpus directory shape for a single service load pass."""
 
     if not input_dir.is_dir():
         return f"Input directory does not exist or is not a directory: {input_dir}"
@@ -37,7 +55,7 @@ class FileIngestionService:
         return sorted(path for path in input_dir.rglob("*.txt") if path.is_file())
 
     def load_source_files(self, input_dir: Path) -> list[SourceFile]:
-        validation_error = validate_input_directory(input_dir)
+        validation_error = validate_input_structure(input_dir)
         if validation_error is not None:
             raise InputDirectoryError(validation_error)
         text_files = self.discover_text_files(input_dir)

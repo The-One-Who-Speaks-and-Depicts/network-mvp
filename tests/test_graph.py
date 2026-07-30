@@ -1,7 +1,6 @@
 """Graph pipeline tests."""
 
 # Focused suites intentionally share realistic setup snippets.
-# pylint: disable=duplicate-code  # Keep graph fixtures local to graph assertions for readability.
 from tests.test_support import (
     CanonicalEntity,
     DockerRunResult,
@@ -21,6 +20,9 @@ from tests.test_support import (
 )
 
 
+# Graph tests retain small, local entity/edge fixtures so each assertion shows
+# its scholarly graph context without hiding it behind a generic factory.
+# pylint: disable=duplicate-code
 class GraphAndProgressTests(ScaffoldTestBase):
     def test_graph_builder_constructs_graph_and_centrality(self) -> None:
         entities = [
