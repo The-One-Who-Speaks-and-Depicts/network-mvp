@@ -8,7 +8,7 @@ PR #2, “release: promote dev to main”, reviewed on 2026-07-30. This issue tr
 
 | # | Location | Review comment | Action | Implementation performed |
 |---:|---|---|---|---|
-| 1 | `.github/workflows/ci.yml:7` | “not necessary tbh, but add to main” | Add `main` to push validation branches. | Added `main` to the workflow push branch list. |
+| 1 | `.github/workflows/ci.yml:7` | “not necessary tbh, but add to main” | Validate pull requests targeting both `main` and `dev`; feature branches are covered through pull requests. | Added `main` to the pull-request target list. |
 | 2 | `.github/workflows/ci.yml:40` | “Add coverage” | Install `coverage`, run the test suite under coverage, and enforce an 80% minimum. | Added the `coverage` dependency and a CI coverage run with `--fail-under=80`. |
 | 3 | `.github/workflows/ci.yml:64` | “not necessary, the pipeline is always feat > dev” | Remove `feat/**` push triggers; feature branches are validated through PRs into `dev`. | Removed the `feat/**` push trigger. |
 | 4 | `app/graph/build.py:12` | “not needed honestly” | Retain the optional NetworkX fallback because it supports minimal installs; document that decision inline. | Kept the fallback and documented its minimal-install/recovery-image purpose. |
@@ -32,7 +32,7 @@ PR #2, “release: promote dev to main”, reviewed on 2026-07-30. This issue tr
 ## Acceptance criteria
 
 - Every PR #2 inline comment appears in the ledger above.
-- CI validates `main` pushes, tests coverage, and does not run redundant feature-branch pushes.
+- CI validates pull requests targeting `main` and `dev`, tests coverage, and does not run redundant feature-branch pushes.
 - Pipeline fallbacks are observable through logs and retain their safe behavior.
 - Shared preprocessing behavior has one implementation.
 - Status labels use `not_inferred` consistently.

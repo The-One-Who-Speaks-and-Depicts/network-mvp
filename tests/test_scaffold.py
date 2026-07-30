@@ -1989,6 +1989,29 @@ class ScaffoldTests(unittest.TestCase):
             self.assertTrue((output_dir / "graph.json").is_file())
             self.assertTrue((output_dir / "graph.html").is_file())
 
+    def test_main_entrypoint_rejects_invalid_environment(self) -> None:
+        with (
+            mock.patch.dict(
+                "os.environ",
+                {
+                    "NETWORK_MVP_INPUT_DIR": "input",
+                    "NETWORK_MVP_OUTPUT_DIR": "output",
+                    "NETWORK_MVP_LMSTUDIO_BASE_URL": "http://localhost:1234/v1",
+                    "NETWORK_MVP_MODEL_NAME": "local-model",
+                    "NETWORK_MVP_ENABLE_DEBUG_LOGGING": "maybe",
+                },
+                clear=True,
+            ),
+            mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
+        ):
+            with self.assertRaisesRegex(
+                SystemExit,
+                "Invalid boolean configuration value for enable_debug_logging",
+            ):
+                app_main.main()
+
+        self.assertIn("Configuration error:", stderr.getvalue())
+
     def test_main_entrypoint_fails_fast_on_first_normalization_llm_error(self) -> None:
         fake_client = FakeLlmClient(error=LlmClientError("connection refused"))
 

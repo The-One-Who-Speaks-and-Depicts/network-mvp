@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import sys
+
 from app.config import AppConfig, ConfigError
 from app.graph.build import GraphBuilder
 from app.graph.export import GraphExporter
@@ -32,16 +35,27 @@ def _emit_progress(
 def main() -> None:
     try:
         config = AppConfig.from_env()
-    except ConfigError:
-        print("Female Character Network Visualizer scaffold")
-        _emit_progress(
-            stage="scaffold",
-            completed=0,
-            total=0,
-            status="completed",
-            message="Scaffold run completed",
+    except ConfigError as error:
+        runtime_keys = (
+            "NETWORK_MVP_INPUT_DIR",
+            "NETWORK_MVP_OUTPUT_DIR",
+            "NETWORK_MVP_LMSTUDIO_BASE_URL",
+            "NETWORK_MVP_MODEL_NAME",
+            "NETWORK_MVP_ENABLE_SEMANTIC_ANNOTATION",
+            "NETWORK_MVP_ENABLE_DEBUG_LOGGING",
         )
-        return
+        if not any(key in os.environ for key in runtime_keys):
+            print("Female Character Network Visualizer scaffold")
+            _emit_progress(
+                stage="scaffold",
+                completed=0,
+                total=0,
+                status="completed",
+                message="Scaffold run completed",
+            )
+            return
+        print(f"Configuration error: {error}", file=sys.stderr)
+        raise SystemExit(str(error)) from error
 
     llm_client = LlmClient.from_config(config)
 
