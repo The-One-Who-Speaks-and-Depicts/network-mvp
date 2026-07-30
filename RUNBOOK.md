@@ -198,5 +198,18 @@ python3 -m mypy app tests scripts
 ```bash
 python3 -m compileall app tests scripts
 python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+## Before opening a PR into `dev`
+
+From the proposed feature or fix branch, run the governance check against the
+current `origin/dev` base:
+
+```bash
 GITHUB_BASE_REF=dev python3 scripts/check_pr_requirements.py
 ```
+
+This branch-specific check compares the proposed branch with `origin/dev` and
+requires the PR to update `VERSION` and `plan/issue_status.md`. CI runs it
+automatically for pull requests targeting `dev`; it is not a general validation
+command for a `dev` checkout.
