@@ -232,12 +232,11 @@ class RuntimeTests(ScaffoldTestBase):
 
     def test_llm_client_default_factory_supplies_lm_studio_api_key(self) -> None:
         fake_openai_class = mock.Mock(return_value=object())
-        fake_openai_module = type("FakeOpenAiModule", (), {"OpenAI": fake_openai_class})()
 
         with (
             mock.patch(
-                "app.services.llm_client.importlib.import_module",
-                return_value=fake_openai_module,
+                "app.services.llm_client.OpenAI",
+                fake_openai_class,
             ),
             mock.patch.dict(llm_client_module.os.environ, {}, clear=True),
         ):
