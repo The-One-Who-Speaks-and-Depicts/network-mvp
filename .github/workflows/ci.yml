@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  python-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify Python source compiles
+        run: python -m compileall app tests scripts
+
+      - name: Ensure no Python cache artifacts are tracked
+        run: |
+          if git ls-files | grep -E '(^|/)__pycache__/|\.py[co]$'; then
+            echo 'Tracked Python cache artifacts found.' >&2
+            exit 1
+          fi
+
+      - name: Run tests with coverage
+        run: python -m coverage run --source=app -m unittest discover -s tests -p 'test_*.py' -v && python -m coverage report --fail-under=80
+
+      - name: Run pylint
+        run: python -m pylint app tests scripts
+
+      - name: Run mypy
+        run: python -m mypy app tests scripts
+
+  docker-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Build image
+        run: docker build -t network-mvp:test .
+
+      - name: Run container entrypoint
+        run: |
+          output=$(docker run --rm network-mvp:test)
+          echo "$output"
+          echo "$output" | grep 'Female Character Network Visualizer scaffold'
+
+  pr-governance:
+    if: github.event_name == 'pull_request' && github.base_ref == 'dev'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Fetch base branch
+        run: git fetch origin "${GITHUB_BASE_REF}" --depth=1
+
+      - name: Enforce PR version and plan updates
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: python scripts/check_pr_requirements.py

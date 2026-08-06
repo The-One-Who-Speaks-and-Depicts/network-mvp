@@ -1,0 +1,47 @@
+Annotate semantic relation between 2 candidate entities in Old East Slavic text context.
+
+Allowed labels:
+- princess of
+- wife of
+- daughter of
+- mother of
+- sister of
+- grandmother of
+- aunt of
+- granddaughter of
+- in-law of
+- prince of
+- husband of
+- son of
+- father of
+- brother of
+- grandfather of
+- uncle of
+- grandson of
+- not stated
+
+Return format:
+label<TAB>direction<TAB>confidence
+
+Direction values:
+- `source_to_target` = the relation points from Entity A (`source`) to Entity B (`target`)
+- `target_to_source` = the relation points from Entity B (`target`) to Entity A (`source`)
+- leave direction empty only when the label is `not stated`
+
+Rules:
+- use lemmatized context as primary relation source
+- use source text only as supporting evidence
+- use only allowed labels
+- if relation does not fit schema, return `not stated`
+- use only the direction values listed above
+- confidence must be float between 0 and 1
+- no commentary
+
+Lemmatized context:
+{lemma_context}
+
+Source text context:
+{source_context}
+
+Entity A: {source}
+Entity B: {target}
